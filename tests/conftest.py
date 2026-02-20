@@ -31,6 +31,14 @@ def mock_vectorstore():
     return vs
 
 
+@pytest.fixture(autouse=True)
+def reset_container():
+    import app.container
+    app.container._container = None
+    yield
+    app.container._container = None
+
+
 @pytest.fixture
 def mock_documents():
     from langchain_core.documents import Document

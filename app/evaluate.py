@@ -1,8 +1,18 @@
 import json
-from app.ask import search
+from app.db import get_vectorstore
+from app.reranker import get_compression_retriever
 from app.llm import generate
+from app.prompting import build_prompt
 from app.metrics import retrieval_at_k, faithfulness, exact_match, measure_latency
 from app.config import CHUNK_SIZE, CHUNK_OVERLAP, SEARCH_K, RERANK_TOP_K
+
+
+def _search(query):
+    vectorstore = get_vectorstore()
+    base_retriever = vectorstore.as_retriever(search_kwargs={"k": SEARCH_K})
+    retriever = get_compression_retriever(base_retriever)
+    docs = retriever.invoke(query)
+    return [{"content": doc.page_content, "source": doc.metadata.get("source", "")} for doc in docs]
 
 
 def load_questions(path="data/eval_questions.json"):
@@ -14,7 +24,7 @@ def evaluate_single(query, expected_source, expected_keywords, search_fn, genera
     def _run():
         results = search_fn(query)
         contexts = [r["content"] for r in results]
-        prompt = f"以下の情報を基に回答してください:\n\n{contexts}\n\n質問:{query}\n回答:"
+        prompt = build_prompt(query, contexts)
         answer = generate_fn(prompt)
         return results, answer
 
@@ -71,7 +81,7 @@ def main():
         "SEARCH_K": SEARCH_K,
         "RERANK_TOP_K": RERANK_TOP_K,
     }
-    results = run_evaluation(questions, search, generate)
+    results = run_evaluation(questions, _search, generate)
     print_report(results, config)
 
 

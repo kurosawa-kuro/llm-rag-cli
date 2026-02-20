@@ -265,7 +265,7 @@ class TestEvaluateMain:
     @patch("app.evaluate.run_evaluation")
     @patch("app.evaluate.load_questions")
     @patch("app.evaluate.generate")
-    @patch("app.evaluate.search")
+    @patch("app.evaluate._search")
     def test_main_calls_pipeline(self, mock_search, mock_generate,
                                   mock_load, mock_run, mock_print):
         mock_load.return_value = [
@@ -287,7 +287,7 @@ class TestEvaluateMain:
     @patch("app.evaluate.run_evaluation")
     @patch("app.evaluate.load_questions")
     @patch("app.evaluate.generate")
-    @patch("app.evaluate.search")
+    @patch("app.evaluate._search")
     def test_main_passes_search_and_generate(self, mock_search, mock_generate,
                                               mock_load, mock_run, mock_print):
         mock_load.return_value = []
