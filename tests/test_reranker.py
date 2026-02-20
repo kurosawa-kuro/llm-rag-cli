@@ -15,9 +15,9 @@ def reset_reranker():
 class TestGetReranker:
     @patch.dict(sys.modules, {
         "langchain_community.cross_encoders": MagicMock(),
-        "langchain_classic": MagicMock(),
-        "langchain_classic.retrievers": MagicMock(),
-        "langchain_classic.retrievers.document_compressors": MagicMock(),
+        "langchain": MagicMock(),
+        "langchain.retrievers": MagicMock(),
+        "langchain.retrievers.document_compressors": MagicMock(),
     })
     def test_loads_correct_model(self):
         import app.reranker
@@ -29,16 +29,16 @@ class TestGetReranker:
 
     @patch.dict(sys.modules, {
         "langchain_community.cross_encoders": MagicMock(),
-        "langchain_classic": MagicMock(),
-        "langchain_classic.retrievers": MagicMock(),
-        "langchain_classic.retrievers.document_compressors": MagicMock(),
+        "langchain": MagicMock(),
+        "langchain.retrievers": MagicMock(),
+        "langchain.retrievers.document_compressors": MagicMock(),
     })
     def test_creates_reranker_with_model(self):
         import app.reranker
         app.reranker._reranker = None
 
         from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-        from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
+        from langchain.retrievers.document_compressors import CrossEncoderReranker
         app.reranker.get_reranker()
         CrossEncoderReranker.assert_called_once_with(
             model=HuggingFaceCrossEncoder.return_value,
@@ -47,23 +47,23 @@ class TestGetReranker:
 
     @patch.dict(sys.modules, {
         "langchain_community.cross_encoders": MagicMock(),
-        "langchain_classic": MagicMock(),
-        "langchain_classic.retrievers": MagicMock(),
-        "langchain_classic.retrievers.document_compressors": MagicMock(),
+        "langchain": MagicMock(),
+        "langchain.retrievers": MagicMock(),
+        "langchain.retrievers.document_compressors": MagicMock(),
     })
     def test_returns_reranker_instance(self):
         import app.reranker
         app.reranker._reranker = None
 
-        from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
+        from langchain.retrievers.document_compressors import CrossEncoderReranker
         result = app.reranker.get_reranker()
         assert result == CrossEncoderReranker.return_value
 
     @patch.dict(sys.modules, {
         "langchain_community.cross_encoders": MagicMock(),
-        "langchain_classic": MagicMock(),
-        "langchain_classic.retrievers": MagicMock(),
-        "langchain_classic.retrievers.document_compressors": MagicMock(),
+        "langchain": MagicMock(),
+        "langchain.retrievers": MagicMock(),
+        "langchain.retrievers.document_compressors": MagicMock(),
     })
     def test_singleton_only_loads_once(self):
         import app.reranker
@@ -187,13 +187,13 @@ class TestRerank:
 
 class TestGetCompressionRetriever:
     @patch.dict(sys.modules, {
-        "langchain_classic": MagicMock(),
-        "langchain_classic.retrievers": MagicMock(),
+        "langchain": MagicMock(),
+        "langchain.retrievers": MagicMock(),
     })
     @patch("app.reranker.get_reranker")
     def test_wraps_base_retriever(self, mock_get_reranker):
         import app.reranker
-        from langchain_classic.retrievers import ContextualCompressionRetriever
+        from langchain.retrievers import ContextualCompressionRetriever
 
         base = MagicMock()
         app.reranker.get_compression_retriever(base)
@@ -203,13 +203,13 @@ class TestGetCompressionRetriever:
         )
 
     @patch.dict(sys.modules, {
-        "langchain_classic": MagicMock(),
-        "langchain_classic.retrievers": MagicMock(),
+        "langchain": MagicMock(),
+        "langchain.retrievers": MagicMock(),
     })
     @patch("app.reranker.get_reranker")
     def test_returns_compression_retriever(self, mock_get_reranker):
         import app.reranker
-        from langchain_classic.retrievers import ContextualCompressionRetriever
+        from langchain.retrievers import ContextualCompressionRetriever
 
         base = MagicMock()
         result = app.reranker.get_compression_retriever(base)

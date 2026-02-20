@@ -70,6 +70,42 @@ class TestFaithfulness:
         assert faithfulness("postgresql is used", ["PostgreSQL"]) == 0.0
 
 
+class TestExactMatch:
+    def test_all_keywords_present_returns_true(self):
+        from app.metrics import exact_match
+
+        answer = "パスワードをリセットするにはメールアドレスを入力してください"
+        keywords = ["パスワード", "リセット", "メールアドレス"]
+        assert exact_match(answer, keywords) is True
+
+    def test_missing_keyword_returns_false(self):
+        from app.metrics import exact_match
+
+        answer = "パスワードの変更が必要です"
+        keywords = ["パスワード", "リセット", "メールアドレス"]
+        assert exact_match(answer, keywords) is False
+
+    def test_empty_keywords_returns_true(self):
+        from app.metrics import exact_match
+
+        assert exact_match("any answer", []) is True
+
+    def test_empty_answer_returns_false(self):
+        from app.metrics import exact_match
+
+        assert exact_match("", ["keyword"]) is False
+
+    def test_single_keyword_present(self):
+        from app.metrics import exact_match
+
+        assert exact_match("PostgreSQL is used", ["PostgreSQL"]) is True
+
+    def test_single_keyword_missing(self):
+        from app.metrics import exact_match
+
+        assert exact_match("MySQL is used", ["PostgreSQL"]) is False
+
+
 class TestMeasureLatency:
     def test_returns_function_result(self):
         from app.metrics import measure_latency

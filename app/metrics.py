@@ -12,6 +12,12 @@ def faithfulness(answer, expected_keywords):
     return found / len(expected_keywords)
 
 
+def exact_match(answer, expected_keywords):
+    if not expected_keywords:
+        return True
+    return all(kw in answer for kw in expected_keywords)
+
+
 def measure_latency(func):
     start = time.time()
     result = func()

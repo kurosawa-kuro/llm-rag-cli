@@ -7,14 +7,14 @@ def get_reranker():
     global _reranker
     if _reranker is None:
         from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-        from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
+        from langchain.retrievers.document_compressors import CrossEncoderReranker
         model = HuggingFaceCrossEncoder(model_name=RERANKER_MODEL)
         _reranker = CrossEncoderReranker(model=model, top_n=RERANK_TOP_K)
     return _reranker
 
 
 def get_compression_retriever(base_retriever):
-    from langchain_classic.retrievers import ContextualCompressionRetriever
+    from langchain.retrievers import ContextualCompressionRetriever
     return ContextualCompressionRetriever(
         base_compressor=get_reranker(),
         base_retriever=base_retriever,

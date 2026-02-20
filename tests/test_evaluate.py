@@ -108,6 +108,32 @@ class TestEvaluateSingle:
         )
         assert result["faithfulness"] == pytest.approx(2.0 / 3.0)
 
+    def test_returns_exact_match_true_when_all_keywords_present(self):
+        mock_search = MagicMock(return_value=[
+            {"content": "answer text", "source": "faq.csv:r1"},
+        ])
+        mock_generate = MagicMock(return_value="パスワードをリセットするにはメールアドレスを入力")
+        from app.evaluate import evaluate_single
+
+        result = evaluate_single(
+            "パスワードを忘れた", "faq.csv:r1", ["パスワード", "リセット", "メールアドレス"],
+            mock_search, mock_generate,
+        )
+        assert result["exact_match"] is True
+
+    def test_returns_exact_match_false_when_keyword_missing(self):
+        mock_search = MagicMock(return_value=[
+            {"content": "answer text", "source": "faq.csv:r1"},
+        ])
+        mock_generate = MagicMock(return_value="パスワードの変更")
+        from app.evaluate import evaluate_single
+
+        result = evaluate_single(
+            "パスワードを忘れた", "faq.csv:r1", ["パスワード", "リセット", "メールアドレス"],
+            mock_search, mock_generate,
+        )
+        assert result["exact_match"] is False
+
     def test_returns_latency_as_float(self):
         mock_search = MagicMock(return_value=[{"content": "c", "source": "s"}])
         mock_generate = MagicMock(return_value="answer")
@@ -178,7 +204,7 @@ class TestPrintReport:
         from app.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
-        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"}]
+        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"}]
         print_report(results, config)
         printed = " ".join(str(c) for c in mock_print.call_args_list)
         assert "500" in printed
@@ -190,8 +216,8 @@ class TestPrintReport:
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [
-            {"query": "q1", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"},
-            {"query": "q2", "retrieval_hit": False, "faithfulness": 0.5, "latency": 0.3, "answer": "a"},
+            {"query": "q1", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"},
+            {"query": "q2", "retrieval_hit": False, "faithfulness": 0.5, "exact_match": False, "latency": 0.3, "answer": "a"},
         ]
         print_report(results, config)
         printed = " ".join(str(c) for c in mock_print.call_args_list)
@@ -203,8 +229,8 @@ class TestPrintReport:
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [
-            {"query": "q1", "retrieval_hit": True, "faithfulness": 0.8, "latency": 0.5, "answer": "a"},
-            {"query": "q2", "retrieval_hit": True, "faithfulness": 0.6, "latency": 0.3, "answer": "a"},
+            {"query": "q1", "retrieval_hit": True, "faithfulness": 0.8, "exact_match": False, "latency": 0.5, "answer": "a"},
+            {"query": "q2", "retrieval_hit": True, "faithfulness": 0.6, "exact_match": False, "latency": 0.3, "answer": "a"},
         ]
         print_report(results, config)
         printed = " ".join(str(c) for c in mock_print.call_args_list)
@@ -216,8 +242,8 @@ class TestPrintReport:
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [
-            {"query": "q1", "retrieval_hit": True, "faithfulness": 1.0, "latency": 1.0, "answer": "a"},
-            {"query": "q2", "retrieval_hit": True, "faithfulness": 1.0, "latency": 3.0, "answer": "a"},
+            {"query": "q1", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 1.0, "answer": "a"},
+            {"query": "q2", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 3.0, "answer": "a"},
         ]
         print_report(results, config)
         printed = " ".join(str(c) for c in mock_print.call_args_list)
@@ -228,7 +254,7 @@ class TestPrintReport:
         from app.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
-        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"}]
+        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"}]
         print_report(results, config)
         printed = " ".join(str(c) for c in mock_print.call_args_list)
         assert "Re-rank" in printed
@@ -247,7 +273,7 @@ class TestEvaluateMain:
         ]
         mock_run.return_value = [
             {"query": "q", "retrieval_hit": True, "faithfulness": 1.0,
-             "latency": 0.5, "answer": "a"}
+             "exact_match": True, "latency": 0.5, "answer": "a"}
         ]
         from app.evaluate import main
 
@@ -304,6 +330,7 @@ class TestRunEvaluationExtended:
         assert "query" in r
         assert "retrieval_hit" in r
         assert "faithfulness" in r
+        assert "exact_match" in r
         assert "latency" in r
         assert "answer" in r
 
@@ -358,9 +385,9 @@ class TestPrintReportExtended:
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [
-            {"query": "q1", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"},
-            {"query": "q2", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"},
-            {"query": "q3", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"},
+            {"query": "q1", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"},
+            {"query": "q2", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"},
+            {"query": "q3", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"},
         ]
         print_report(results, config)
         printed = " ".join(str(c) for c in mock_print.call_args_list)
@@ -372,8 +399,8 @@ class TestPrintReportExtended:
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [
-            {"query": "q1", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"},
-            {"query": "q2", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"},
+            {"query": "q1", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"},
+            {"query": "q2", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"},
         ]
         print_report(results, config)
         printed = " ".join(str(c) for c in mock_print.call_args_list)
@@ -384,7 +411,7 @@ class TestPrintReportExtended:
         from app.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
-        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"}]
+        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"}]
         print_report(results, config)
         printed = " ".join(str(c) for c in mock_print.call_args_list)
         assert "ON" in printed
@@ -394,7 +421,7 @@ class TestPrintReportExtended:
         from app.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 0}
-        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"}]
+        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"}]
         print_report(results, config)
         printed = " ".join(str(c) for c in mock_print.call_args_list)
         assert "OFF" in printed
@@ -404,7 +431,7 @@ class TestPrintReportExtended:
         from app.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
-        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"}]
+        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"}]
         print_report(results, config)
         printed = " ".join(str(c) for c in mock_print.call_args_list)
         assert "10" in printed
