@@ -130,6 +130,44 @@ class TestAppContainer:
         assert vs1 is vs2
         mock_create_vs.assert_called_once()
 
+    def test_injected_retrieval_strategy(self):
+        from app.container import AppContainer
+
+        mock_strategy = MagicMock()
+        container = AppContainer(retrieval_strategy=mock_strategy)
+        assert container.retrieval_strategy is mock_strategy
+
+    def test_retrieval_strategy_lazy_loads(self):
+        from app.container import AppContainer
+        from app.retrieval import TwoStageRetrieval
+
+        mock_vs = MagicMock()
+        mock_reranker = MagicMock()
+        container = AppContainer(vectorstore=mock_vs, reranker=mock_reranker)
+        strategy = container.retrieval_strategy
+        assert isinstance(strategy, TwoStageRetrieval)
+        assert strategy.vectorstore is mock_vs
+        assert strategy.reranker is mock_reranker
+        assert strategy.search_k == 10
+        assert strategy.rerank_top_k == 3
+
+    def test_retrieval_strategy_cached_after_first_access(self):
+        from app.container import AppContainer
+
+        mock_vs = MagicMock()
+        mock_reranker = MagicMock()
+        container = AppContainer(vectorstore=mock_vs, reranker=mock_reranker)
+        s1 = container.retrieval_strategy
+        s2 = container.retrieval_strategy
+        assert s1 is s2
+
+    def test_rag_settings_is_frozen(self):
+        from app.container import RagSettings
+
+        settings = RagSettings()
+        with pytest.raises(AttributeError):
+            settings.search_k = 99
+
 
 class TestGetContainer:
     def test_returns_container(self):

@@ -1,3 +1,6 @@
+PYTHON ?= python3
+DOCKER_RUN = docker compose exec app
+
 .PHONY: up down build shell test test-unit test-integration test-heavy ingest ask lint evaluate
 
 up:
@@ -13,25 +16,25 @@ shell:
 	docker compose exec app bash
 
 test:
-	docker compose exec app python -m pytest tests/ -v
+	$(PYTHON) -m pytest tests/ -v
 
 test-unit:
-	docker compose exec app python -m pytest tests/ -v -m "not integration and not heavy"
+	$(PYTHON) -m pytest tests/ -v -m "not integration and not heavy"
 
 test-integration:
-	docker compose exec app python -m pytest tests/ -v -m "integration and not heavy"
+	$(PYTHON) -m pytest tests/ -v -m "integration and not heavy"
 
 test-heavy:
-	docker compose exec app python -m pytest tests/ -v -m heavy
+	$(PYTHON) -m pytest tests/ -v -m heavy
 
 ingest:
-	docker compose exec app python -m app.ingest
+	$(PYTHON) -m app.ingest
 
 ask:
-	docker compose exec app python -m app.ask "$(Q)"
+	$(PYTHON) -m app.ask "$(Q)"
 
 lint:
-	docker compose exec app python -m py_compile app/config.py app/db.py app/embeddings.py app/llm.py app/reranker.py app/ingest.py app/ask.py app/chunking.py app/metrics.py app/evaluate.py app/graph.py app/prompting.py app/container.py
+	$(PYTHON) -m py_compile app/config.py app/db.py app/embeddings.py app/llm.py app/reranker.py app/ingest.py app/ask.py app/chunking.py app/metrics.py app/evaluate.py app/graph.py app/prompting.py app/container.py app/interfaces.py app/retrieval.py
 
 evaluate:
-	docker compose exec app python -m app.evaluate
+	$(PYTHON) -m app.evaluate

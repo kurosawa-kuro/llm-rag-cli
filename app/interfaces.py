@@ -1,0 +1,27 @@
+from __future__ import annotations
+
+from typing import Protocol, List, Callable, Any
+from langchain_core.documents import Document
+
+
+class RetrieverProtocol(Protocol):
+    def invoke(self, query: str) -> List[Document]: ...
+
+
+class VectorStoreProtocol(Protocol):
+    def as_retriever(self, *, search_kwargs: dict) -> RetrieverProtocol: ...
+
+
+class RerankerProtocol(Protocol):
+    def compress_documents(self, documents: List[Document], query: str) -> List[Document]: ...
+
+
+class LLMProtocol(Protocol):
+    def invoke(self, prompt: str) -> str: ...
+
+
+PromptBuilder = Callable[[str, List[str]], str]
+
+
+class RetrievalStrategyProtocol(Protocol):
+    def retrieve(self, query: str) -> List[Document]: ...
