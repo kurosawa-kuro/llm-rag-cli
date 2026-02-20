@@ -1,36 +1,28 @@
-app/__pycache__/
-tests/__pycache__/
-src/cli/__pycache__/__init__.cpython-310.pyc
-src/cli/__pycache__/ask.cpython-310.pyc
-src/rag/__pycache__/__init__.cpython-310.pyc
-src/rag/components/__pycache__/__init__.cpython-310.pyc
-src/rag/components/__pycache__/embeddings.cpython-310.pyc
-src/rag/components/__pycache__/llm.cpython-310.pyc
-src/rag/components/__pycache__/prompting.cpython-310.pyc
-src/rag/components/__pycache__/reranker.cpython-310.pyc
-src/rag/core/__pycache__/__init__.cpython-310.pyc
-src/rag/core/__pycache__/config.cpython-310.pyc
-src/rag/core/__pycache__/container.cpython-310.pyc
-src/rag/core/__pycache__/interfaces.cpython-310.pyc
-src/rag/data/__pycache__/__init__.cpython-310.pyc
-src/rag/data/__pycache__/chunking.cpython-310.pyc
-src/rag/data/__pycache__/ingest.cpython-310.pyc
-src/rag/evaluation/__pycache__/__init__.cpython-310.pyc
-src/rag/evaluation/__pycache__/evaluate.cpython-310.pyc
-src/rag/evaluation/__pycache__/metrics.cpython-310.pyc
-src/rag/infra/__pycache__/__init__.cpython-310.pyc
-src/rag/infra/__pycache__/db.cpython-310.pyc
-src/rag/pipeline/__pycache__/__init__.cpython-310.pyc
-src/rag/pipeline/__pycache__/graph.cpython-310.pyc
-src/rag/pipeline/__pycache__/retrieval.cpython-310.pyc
-tests/__pycache__/conftest.cpython-310-pytest-9.0.2.pyc
-tests/__pycache__/test_ask.cpython-310-pytest-9.0.2.pyc
-tests/__pycache__/test_chunking.cpython-310-pytest-9.0.2.pyc
-tests/__pycache__/test_config.cpython-310-pytest-9.0.2.pyc
-tests/__pycache__/test_db.cpython-310-pytest-9.0.2.pyc
-tests/__pycache__/test_embeddings.cpython-310-pytest-9.0.2.pyc
-tests/__pycache__/test_evaluate.cpython-310-pytest-9.0.2.pyc
-tests/__pycache__/test_ingest.cpython-310-pytest-9.0.2.pyc
-tests/__pycache__/test_llm.cpython-310-pytest-9.0.2.pyc
-tests/__pycache__/test_metrics.cpython-310-pytest-9.0.2.pyc
-tests/__pycache__/test_reranker.cpython-310-pytest-9.0.2.pyc
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Models (large binary files)
+models/*.gguf
+models/*.bin
+
+# Secrets
+env/secret/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
