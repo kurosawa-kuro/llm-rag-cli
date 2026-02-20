@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 from langchain_core.documents import Document
 
-from app.interfaces import (
+from rag.core.interfaces import (
     RetrieverProtocol,
     VectorStoreProtocol,
     RerankerProtocol,

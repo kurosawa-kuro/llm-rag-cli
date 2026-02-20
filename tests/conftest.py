@@ -33,10 +33,10 @@ def mock_vectorstore():
 
 @pytest.fixture(autouse=True)
 def reset_container():
-    import app.container
-    app.container._container = None
+    import rag.core.container
+    rag.core.container._container = None
     yield
-    app.container._container = None
+    rag.core.container._container = None
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def mock_documents():
 def _check_db_connection():
     """PostgreSQL に接続できるか確認し、不可なら pytest.skip する。"""
     from sqlalchemy import create_engine, text
-    from app.config import CONNECTION_STRING
+    from rag.core.config import CONNECTION_STRING
 
     engine = create_engine(CONNECTION_STRING)
     try:
@@ -79,7 +79,7 @@ def test_vectorstore(test_embeddings):
     _check_db_connection()
 
     from langchain_postgres import PGVector
-    from app.config import CONNECTION_STRING
+    from rag.core.config import CONNECTION_STRING
 
     vs = PGVector(
         embeddings=test_embeddings,
@@ -102,8 +102,8 @@ def real_vectorstore():
 
     import uuid
     from langchain_postgres import PGVector
-    from app.embeddings import create_embeddings
-    from app.config import CONNECTION_STRING
+    from rag.components.embeddings import create_embeddings
+    from rag.core.config import CONNECTION_STRING
 
     collection_name = f"test_heavy_{uuid.uuid4().hex[:8]}"
     embeddings = create_embeddings()

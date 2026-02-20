@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 from langchain_core.documents import Document
 import pytest
 
-from app.retrieval import TwoStageRetrieval
+from rag.pipeline.retrieval import TwoStageRetrieval
 
 
 @pytest.fixture

@@ -54,7 +54,7 @@ class TestLoadQuestions:
         questions = [{"query": "q", "expected_source": "s", "expected_keywords": ["k"]}]
         m = mock_open(read_data=json.dumps(questions))
         with patch("builtins.open", m):
-            from app.evaluate import load_questions
+            from rag.evaluation.evaluate import load_questions
 
             result = load_questions("dummy.json")
         assert result == questions
@@ -62,7 +62,7 @@ class TestLoadQuestions:
     def test_returns_list(self):
         m = mock_open(read_data="[]")
         with patch("builtins.open", m):
-            from app.evaluate import load_questions
+            from rag.evaluation.evaluate import load_questions
 
             result = load_questions("dummy.json")
         assert isinstance(result, list)
@@ -75,7 +75,7 @@ class TestEvaluateSingle:
             "answer": "パスワードをリセットしてください",
             "sources": ["faq.csv:r1"],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         result = evaluate_single(
             "パスワードを忘れた", "faq.csv:r1", ["パスワード", "リセット"],
@@ -89,7 +89,7 @@ class TestEvaluateSingle:
             "answer": "関係ない回答",
             "sources": ["products.csv:r1"],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         result = evaluate_single(
             "パスワードを忘れた", "faq.csv:r1", ["パスワード"],
@@ -103,7 +103,7 @@ class TestEvaluateSingle:
             "answer": "パスワードをリセット",
             "sources": ["faq.csv:r1"],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         result = evaluate_single(
             "q", "faq.csv:r1", ["パスワード", "リセット", "メール"],
@@ -117,7 +117,7 @@ class TestEvaluateSingle:
             "answer": "パスワードをリセットするにはメールアドレスを入力",
             "sources": ["faq.csv:r1"],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         result = evaluate_single(
             "パスワードを忘れた", "faq.csv:r1", ["パスワード", "リセット", "メールアドレス"],
@@ -131,7 +131,7 @@ class TestEvaluateSingle:
             "answer": "パスワードの変更",
             "sources": ["faq.csv:r1"],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         result = evaluate_single(
             "パスワードを忘れた", "faq.csv:r1", ["パスワード", "リセット", "メールアドレス"],
@@ -145,7 +145,7 @@ class TestEvaluateSingle:
             "answer": "answer",
             "sources": ["s"],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         result = evaluate_single("q", "s", ["answer"], mock_graph)
         assert isinstance(result["latency"], float)
@@ -157,7 +157,7 @@ class TestEvaluateSingle:
             "answer": "a",
             "sources": ["s"],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         evaluate_single("my query", "s", ["a"], mock_graph)
         mock_graph.invoke.assert_called_once_with({"query": "my query"})
@@ -168,7 +168,7 @@ class TestEvaluateSingle:
             "answer": "specific answer text",
             "sources": ["s"],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         result = evaluate_single("my query", "s", ["specific"], mock_graph)
         assert result["answer"] == "specific answer text"
@@ -185,7 +185,7 @@ class TestRunEvaluation:
             {"query": "q1", "expected_source": "faq.csv:r1", "expected_keywords": ["パスワード"]},
             {"query": "q2", "expected_source": "faq.csv:r2", "expected_keywords": ["アカウント"]},
         ]
-        from app.evaluate import run_evaluation
+        from rag.evaluation.evaluate import run_evaluation
 
         results = run_evaluation(questions, mock_graph)
         assert len(results) == 2
@@ -205,7 +205,7 @@ class TestRunEvaluation:
             {"query": "q1", "expected_source": "faq.csv:r1", "expected_keywords": ["keyword1"]},
             {"query": "q2", "expected_source": "faq.csv:r2", "expected_keywords": ["keyword1"]},
         ]
-        from app.evaluate import run_evaluation
+        from rag.evaluation.evaluate import run_evaluation
 
         results = run_evaluation(questions, mock_graph)
         hits = sum(1 for r in results if r["retrieval_hit"])
@@ -215,7 +215,7 @@ class TestRunEvaluation:
 class TestPrintReport:
     @patch("builtins.print")
     def test_prints_config_header(self, mock_print):
-        from app.evaluate import print_report
+        from rag.evaluation.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"}]
@@ -226,7 +226,7 @@ class TestPrintReport:
 
     @patch("builtins.print")
     def test_prints_retrieval_percentage(self, mock_print):
-        from app.evaluate import print_report
+        from rag.evaluation.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [
@@ -239,7 +239,7 @@ class TestPrintReport:
 
     @patch("builtins.print")
     def test_prints_faithfulness_percentage(self, mock_print):
-        from app.evaluate import print_report
+        from rag.evaluation.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [
@@ -252,7 +252,7 @@ class TestPrintReport:
 
     @patch("builtins.print")
     def test_prints_average_latency(self, mock_print):
-        from app.evaluate import print_report
+        from rag.evaluation.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [
@@ -265,7 +265,7 @@ class TestPrintReport:
 
     @patch("builtins.print")
     def test_prints_rerank_status(self, mock_print):
-        from app.evaluate import print_report
+        from rag.evaluation.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"}]
@@ -275,11 +275,11 @@ class TestPrintReport:
 
 
 class TestEvaluateMain:
-    @patch("app.evaluate.print_report")
-    @patch("app.evaluate.run_evaluation")
-    @patch("app.evaluate.load_questions")
-    @patch("app.evaluate.get_container")
-    @patch("app.evaluate.get_graph")
+    @patch("rag.evaluation.evaluate.print_report")
+    @patch("rag.evaluation.evaluate.run_evaluation")
+    @patch("rag.evaluation.evaluate.load_questions")
+    @patch("rag.evaluation.evaluate.get_container")
+    @patch("rag.evaluation.evaluate.get_graph")
     def test_main_calls_pipeline(self, mock_get_graph, mock_get_container,
                                   mock_load, mock_run, mock_print):
         mock_load.return_value = [
@@ -289,7 +289,7 @@ class TestEvaluateMain:
             {"query": "q", "retrieval_hit": True, "faithfulness": 1.0,
              "exact_match": True, "latency": 0.5, "answer": "a"}
         ]
-        from app.evaluate import main
+        from rag.evaluation.evaluate import main
 
         main()
 
@@ -297,16 +297,16 @@ class TestEvaluateMain:
         mock_run.assert_called_once()
         mock_print.assert_called_once()
 
-    @patch("app.evaluate.print_report")
-    @patch("app.evaluate.run_evaluation")
-    @patch("app.evaluate.load_questions")
-    @patch("app.evaluate.get_container")
-    @patch("app.evaluate.get_graph")
+    @patch("rag.evaluation.evaluate.print_report")
+    @patch("rag.evaluation.evaluate.run_evaluation")
+    @patch("rag.evaluation.evaluate.load_questions")
+    @patch("rag.evaluation.evaluate.get_container")
+    @patch("rag.evaluation.evaluate.get_graph")
     def test_main_passes_graph(self, mock_get_graph, mock_get_container,
                                 mock_load, mock_run, mock_print):
         mock_load.return_value = []
         mock_run.return_value = []
-        from app.evaluate import main
+        from rag.evaluation.evaluate import main
 
         main()
 
@@ -326,7 +326,7 @@ class TestRunEvaluationExtended:
             {"query": "q2", "expected_source": "s", "expected_keywords": ["answer"]},
             {"query": "q3", "expected_source": "s", "expected_keywords": ["answer"]},
         ]
-        from app.evaluate import run_evaluation
+        from rag.evaluation.evaluate import run_evaluation
 
         results = run_evaluation(questions, mock_graph)
         assert results[0]["query"] == "q1"
@@ -342,7 +342,7 @@ class TestRunEvaluationExtended:
         questions = [
             {"query": "q", "expected_source": "faq.csv:r1", "expected_keywords": ["answer"]},
         ]
-        from app.evaluate import run_evaluation
+        from rag.evaluation.evaluate import run_evaluation
 
         results = run_evaluation(questions, mock_graph)
         r = results[0]
@@ -363,7 +363,7 @@ class TestRunEvaluationExtended:
             {"query": "q1", "expected_source": "s", "expected_keywords": ["a"]},
             {"query": "q2", "expected_source": "s", "expected_keywords": ["a"]},
         ]
-        from app.evaluate import run_evaluation
+        from rag.evaluation.evaluate import run_evaluation
 
         run_evaluation(questions, mock_graph)
         assert mock_graph.invoke.call_count == 2
@@ -376,7 +376,7 @@ class TestEvaluateSingleExtended:
             "answer": "generated answer",
             "sources": ["s"],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         result = evaluate_single("q", "s", ["answer"], mock_graph)
         assert result["answer"] == "generated answer"
@@ -387,7 +387,7 @@ class TestEvaluateSingleExtended:
             "answer": "answer with keyword1",
             "sources": ["s1", "s2", "s3"],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         result = evaluate_single("q", "s2", ["keyword1"], mock_graph)
         assert result["retrieval_hit"] is True
@@ -399,7 +399,7 @@ class TestEvaluateSingleExtended:
             "answer": "a",
             "sources": ["s"],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         result = evaluate_single("my specific query", "s", ["a"], mock_graph)
         assert result["query"] == "my specific query"
@@ -408,7 +408,7 @@ class TestEvaluateSingleExtended:
 class TestPrintReportExtended:
     @patch("builtins.print")
     def test_prints_question_count(self, mock_print):
-        from app.evaluate import print_report
+        from rag.evaluation.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [
@@ -422,7 +422,7 @@ class TestPrintReportExtended:
 
     @patch("builtins.print")
     def test_prints_100_percent_retrieval(self, mock_print):
-        from app.evaluate import print_report
+        from rag.evaluation.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [
@@ -435,7 +435,7 @@ class TestPrintReportExtended:
 
     @patch("builtins.print")
     def test_prints_rerank_on_when_top_k_positive(self, mock_print):
-        from app.evaluate import print_report
+        from rag.evaluation.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"}]
@@ -445,7 +445,7 @@ class TestPrintReportExtended:
 
     @patch("builtins.print")
     def test_prints_rerank_off_when_top_k_zero(self, mock_print):
-        from app.evaluate import print_report
+        from rag.evaluation.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 0}
         results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"}]
@@ -455,7 +455,7 @@ class TestPrintReportExtended:
 
     @patch("builtins.print")
     def test_prints_search_k(self, mock_print):
-        from app.evaluate import print_report
+        from rag.evaluation.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "exact_match": True, "latency": 0.5, "answer": "a"}]
@@ -466,13 +466,13 @@ class TestPrintReportExtended:
 
 class TestEvaluateEdgeCases:
     def test_load_questions_nonexistent_file_raises_error(self):
-        from app.evaluate import load_questions
+        from rag.evaluation.evaluate import load_questions
 
         with pytest.raises(FileNotFoundError):
             load_questions("/nonexistent/path.json")
 
     def test_load_questions_invalid_json_raises_error(self):
-        from app.evaluate import load_questions
+        from rag.evaluation.evaluate import load_questions
 
         m = mock_open(read_data="not valid json{{{")
         with patch("builtins.open", m):
@@ -480,7 +480,7 @@ class TestEvaluateEdgeCases:
                 load_questions("dummy.json")
 
     def test_print_report_empty_results_raises_zero_division(self):
-        from app.evaluate import print_report
+        from rag.evaluation.evaluate import print_report
 
         config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
         with pytest.raises(ZeroDivisionError):
@@ -488,7 +488,7 @@ class TestEvaluateEdgeCases:
 
     def test_run_evaluation_empty_questions_returns_empty(self):
         mock_graph = MagicMock()
-        from app.evaluate import run_evaluation
+        from rag.evaluation.evaluate import run_evaluation
 
         results = run_evaluation([], mock_graph)
         assert results == []
@@ -500,7 +500,7 @@ class TestEvaluateEdgeCases:
             "answer": "no context answer",
             "sources": [],
         }
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         result = evaluate_single("q", "faq.csv:r1", ["keyword"], mock_graph)
         assert result["retrieval_hit"] is False
@@ -509,7 +509,7 @@ class TestEvaluateEdgeCases:
     def test_evaluate_single_graph_raises_propagates(self):
         mock_graph = MagicMock()
         mock_graph.invoke.side_effect = RuntimeError("LLM error")
-        from app.evaluate import evaluate_single
+        from rag.evaluation.evaluate import evaluate_single
 
         with pytest.raises(RuntimeError, match="LLM error"):
             evaluate_single("q", "s", ["k"], mock_graph)

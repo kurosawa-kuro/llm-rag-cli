@@ -2,15 +2,15 @@ from unittest.mock import MagicMock
 from langchain_core.documents import Document
 import pytest
 
-from app.container import AppContainer, RagSettings
+from rag.core.container import AppContainer, RagSettings
 
 
 @pytest.fixture(autouse=True)
 def reset_graph():
-    import app.graph
-    app.graph._graph = None
+    import rag.pipeline.graph
+    rag.pipeline.graph._graph = None
     yield
-    app.graph._graph = None
+    rag.pipeline.graph._graph = None
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def mock_container():
 
 class TestRAGState:
     def test_state_has_required_fields(self):
-        from app.graph import RAGState
+        from rag.pipeline.graph import RAGState
 
         assert "query" in RAGState.__annotations__
         assert "reranked_documents" in RAGState.__annotations__
@@ -33,7 +33,7 @@ class TestRAGState:
         assert "sources" in RAGState.__annotations__
 
     def test_state_defaults(self):
-        from app.graph import RAGState
+        from rag.pipeline.graph import RAGState
 
         state = RAGState()
         assert state.query == ""
@@ -48,7 +48,7 @@ class TestRetrieveNode:
     def test_returns_reranked_documents_key(self, mock_container):
         docs = [Document(page_content="doc1", metadata={"source": "s1"})]
         mock_container.retrieval_strategy.retrieve.return_value = docs
-        from app.graph import create_retrieve, RAGState
+        from rag.pipeline.graph import create_retrieve, RAGState
 
         retrieve = create_retrieve(mock_container)
         result = retrieve(RAGState(query="test"))
@@ -58,7 +58,7 @@ class TestRetrieveNode:
 
     def test_calls_retrieval_strategy_with_query(self, mock_container):
         mock_container.retrieval_strategy.retrieve.return_value = []
-        from app.graph import create_retrieve, RAGState
+        from rag.pipeline.graph import create_retrieve, RAGState
 
         retrieve = create_retrieve(mock_container)
         retrieve(RAGState(query="テスト質問"))
@@ -67,7 +67,7 @@ class TestRetrieveNode:
 
     def test_empty_query(self, mock_container):
         mock_container.retrieval_strategy.retrieve.return_value = []
-        from app.graph import create_retrieve, RAGState
+        from rag.pipeline.graph import create_retrieve, RAGState
 
         retrieve = create_retrieve(mock_container)
         result = retrieve(RAGState(query=""))
@@ -79,7 +79,7 @@ class TestRetrieveNode:
 class TestGenerateNode:
     def test_builds_japanese_prompt(self, mock_container):
         mock_container.llm.invoke.return_value = "回答テスト"
-        from app.graph import create_generate, RAGState
+        from rag.pipeline.graph import create_generate, RAGState
 
         docs = [Document(page_content="context", metadata={"source": "s1"})]
         generate = create_generate(mock_container)
@@ -92,7 +92,7 @@ class TestGenerateNode:
 
     def test_returns_answer(self, mock_container):
         mock_container.llm.invoke.return_value = "回答テスト"
-        from app.graph import create_generate, RAGState
+        from rag.pipeline.graph import create_generate, RAGState
 
         docs = [Document(page_content="context", metadata={"source": "s1"})]
         generate = create_generate(mock_container)
@@ -102,7 +102,7 @@ class TestGenerateNode:
 
     def test_returns_sources(self, mock_container):
         mock_container.llm.invoke.return_value = "回答"
-        from app.graph import create_generate, RAGState
+        from rag.pipeline.graph import create_generate, RAGState
 
         docs = [
             Document(page_content="c1", metadata={"source": "doc.pdf:p1"}),
@@ -115,7 +115,7 @@ class TestGenerateNode:
 
     def test_returns_contexts(self, mock_container):
         mock_container.llm.invoke.return_value = "回答"
-        from app.graph import create_generate, RAGState
+        from rag.pipeline.graph import create_generate, RAGState
 
         docs = [Document(page_content="context text", metadata={"source": "s1"})]
         generate = create_generate(mock_container)
@@ -125,7 +125,7 @@ class TestGenerateNode:
 
     def test_prompt_includes_context(self, mock_container):
         mock_container.llm.invoke.return_value = "回答"
-        from app.graph import create_generate, RAGState
+        from rag.pipeline.graph import create_generate, RAGState
 
         docs = [Document(page_content="important context", metadata={"source": "s1"})]
         generate = create_generate(mock_container)
@@ -135,7 +135,7 @@ class TestGenerateNode:
 
     def test_calls_llm_invoke(self, mock_container):
         mock_container.llm.invoke.return_value = "回答"
-        from app.graph import create_generate, RAGState
+        from rag.pipeline.graph import create_generate, RAGState
 
         docs = [Document(page_content="context", metadata={"source": "s1"})]
         generate = create_generate(mock_container)
@@ -145,7 +145,7 @@ class TestGenerateNode:
 
     def test_empty_reranked_documents(self, mock_container):
         mock_container.llm.invoke.return_value = "回答なし"
-        from app.graph import create_generate, RAGState
+        from rag.pipeline.graph import create_generate, RAGState
 
         generate = create_generate(mock_container)
         result = generate(RAGState(query="テスト", reranked_documents=[]))
@@ -156,7 +156,7 @@ class TestGenerateNode:
 
     def test_document_without_source_returns_empty_string(self, mock_container):
         mock_container.llm.invoke.return_value = "回答"
-        from app.graph import create_generate, RAGState
+        from rag.pipeline.graph import create_generate, RAGState
 
         docs = [Document(page_content="context", metadata={})]
         generate = create_generate(mock_container)
@@ -166,7 +166,7 @@ class TestGenerateNode:
 
     def test_llm_raises_propagates(self, mock_container):
         mock_container.llm.invoke.side_effect = RuntimeError("model error")
-        from app.graph import create_generate, RAGState
+        from rag.pipeline.graph import create_generate, RAGState
 
         docs = [Document(page_content="context", metadata={"source": "s"})]
         generate = create_generate(mock_container)
@@ -177,13 +177,13 @@ class TestGenerateNode:
 
 class TestBuildRagGraph:
     def test_graph_compiles(self, mock_container):
-        from app.graph import build_rag_graph
+        from rag.pipeline.graph import build_rag_graph
 
         graph = build_rag_graph(container=mock_container)
         assert graph is not None
 
     def test_graph_has_nodes(self, mock_container):
-        from app.graph import build_rag_graph
+        from rag.pipeline.graph import build_rag_graph
 
         graph = build_rag_graph(container=mock_container)
         node_names = list(graph.nodes.keys())
@@ -193,13 +193,13 @@ class TestBuildRagGraph:
 
 class TestGetGraph:
     def test_returns_compiled_graph(self, mock_container):
-        from app.graph import get_graph
+        from rag.pipeline.graph import get_graph
 
         graph = get_graph(container=mock_container)
         assert graph is not None
 
     def test_singleton_returns_same_instance(self, mock_container):
-        from app.graph import get_graph
+        from rag.pipeline.graph import get_graph
 
         g1 = get_graph(container=mock_container)
         # Second call without container uses cache
@@ -207,7 +207,7 @@ class TestGetGraph:
         assert g2 is not None
 
     def test_container_injection_bypasses_cache(self, mock_container):
-        from app.graph import get_graph
+        from rag.pipeline.graph import get_graph
 
         g1 = get_graph()
         g2 = get_graph(container=mock_container)
