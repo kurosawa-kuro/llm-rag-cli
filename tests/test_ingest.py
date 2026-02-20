@@ -30,6 +30,54 @@ class TestLoadPdfs:
         result = load_pdfs()
         assert result == [("page 1", "a.pdf:p1"), ("page 2", "a.pdf:p2")]
 
+    @patch("app.ingest.PdfReader")
+    @patch("app.ingest.os.listdir", return_value=["first.pdf", "second.pdf"])
+    def test_loads_multiple_pdf_files(self, mock_listdir, mock_reader):
+        page_a = MagicMock()
+        page_a.extract_text.return_value = "content A"
+        page_b = MagicMock()
+        page_b.extract_text.return_value = "content B"
+
+        mock_reader.side_effect = [
+            MagicMock(pages=[page_a]),
+            MagicMock(pages=[page_b]),
+        ]
+        from app.ingest import load_pdfs
+
+        result = load_pdfs()
+        assert len(result) == 2
+        assert result[0] == ("content A", "first.pdf:p1")
+        assert result[1] == ("content B", "second.pdf:p1")
+
+    @patch("app.ingest.PdfReader")
+    @patch("app.ingest.os.listdir", return_value=["a.pdf"])
+    def test_returns_tuple_of_text_and_source(self, mock_listdir, mock_reader):
+        page = MagicMock()
+        page.extract_text.return_value = "text"
+        mock_reader.return_value.pages = [page]
+        from app.ingest import load_pdfs
+
+        result = load_pdfs()
+        assert isinstance(result[0], tuple)
+        assert len(result[0]) == 2
+        text, source = result[0]
+        assert isinstance(text, str)
+        assert isinstance(source, str)
+
+    @patch("app.ingest.PdfReader")
+    @patch("app.ingest.os.listdir", return_value=["doc.pdf"])
+    def test_page_numbering_starts_at_1(self, mock_listdir, mock_reader):
+        pages = [MagicMock() for _ in range(3)]
+        for i, p in enumerate(pages):
+            p.extract_text.return_value = f"page {i}"
+        mock_reader.return_value.pages = pages
+        from app.ingest import load_pdfs
+
+        result = load_pdfs()
+        assert result[0][1] == "doc.pdf:p1"
+        assert result[1][1] == "doc.pdf:p2"
+        assert result[2][1] == "doc.pdf:p3"
+
 
 class TestLoadCsvs:
     @patch("app.ingest.pd.read_csv")
@@ -62,6 +110,21 @@ class TestLoadCsvs:
         assert "col2:1" in result[0][0]
         assert result[0][1] == "data.csv:r1"
         assert result[1][1] == "data.csv:r2"
+
+    @patch("app.ingest.pd.read_csv")
+    @patch("app.ingest.os.listdir", return_value=["faq.csv", "products.csv"])
+    def test_loads_multiple_csv_files(self, mock_listdir, mock_read_csv):
+        import pandas as pd
+        mock_read_csv.side_effect = [
+            pd.DataFrame({"q": ["q1"]}),
+            pd.DataFrame({"name": ["p1"]}),
+        ]
+        from app.ingest import load_csvs
+
+        result = load_csvs()
+        assert len(result) == 2
+        assert result[0][1] == "faq.csv:r1"
+        assert result[1][1] == "products.csv:r1"
 
 
 class TestMain:
@@ -164,3 +227,75 @@ class TestMain:
 
         # 短いCSVテキストは1チャンクのまま
         assert cur.execute.call_count == 1
+
+    @patch("app.ingest.tqdm", side_effect=lambda x: x)
+    @patch("app.ingest.get_conn")
+    @patch("app.ingest.embed")
+    @patch("app.ingest.load_csvs", return_value=[])
+    @patch("app.ingest.load_pdfs", return_value=[])
+    @patch("app.ingest.init_db")
+    def test_main_with_no_documents(self, mock_init, mock_pdfs, mock_csvs,
+                                     mock_embed, mock_conn, mock_tqdm,
+                                     mock_db_connection):
+        conn, cur = mock_db_connection
+        mock_conn.return_value = conn
+        mock_embed.return_value = np.array([]).reshape(0, 384)
+        from app.ingest import main
+
+        main()
+
+        mock_init.assert_called_once()
+        cur.execute.assert_not_called()
+
+    @patch("app.ingest.tqdm", side_effect=lambda x: x)
+    @patch("app.ingest.get_conn")
+    @patch("app.ingest.embed")
+    @patch("app.ingest.load_csvs", return_value=[
+        ("row1 text", "data.csv:r1"),
+        ("row2 text", "data.csv:r2"),
+    ])
+    @patch("app.ingest.load_pdfs", return_value=[
+        ("pdf text", "doc.pdf:p1"),
+    ])
+    @patch("app.ingest.init_db")
+    def test_main_embeds_all_chunks_at_once(self, mock_init, mock_pdfs, mock_csvs,
+                                             mock_embed, mock_conn, mock_tqdm,
+                                             mock_db_connection):
+        conn, cur = mock_db_connection
+        mock_conn.return_value = conn
+        mock_embed.return_value = np.array([[0.1] * 384] * 3)
+        from app.ingest import main
+
+        main()
+
+        # embed は1回だけ呼ばれ、全チャンクをまとめて処理
+        mock_embed.assert_called_once()
+        texts = mock_embed.call_args[0][0]
+        assert len(texts) == 3
+
+    @patch("app.ingest.tqdm", side_effect=lambda x: x)
+    @patch("app.ingest.get_conn")
+    @patch("app.ingest.embed")
+    @patch("app.ingest.load_csvs", return_value=[("csv text", "file.csv:r1")])
+    @patch("app.ingest.load_pdfs", return_value=[("pdf text", "doc.pdf:p1")])
+    @patch("app.ingest.init_db")
+    def test_main_inserts_correct_data(self, mock_init, mock_pdfs, mock_csvs,
+                                        mock_embed, mock_conn, mock_tqdm,
+                                        mock_db_connection):
+        conn, cur = mock_db_connection
+        mock_conn.return_value = conn
+        mock_embed.return_value = np.array([[0.5] * 384, [0.6] * 384])
+        from app.ingest import main
+
+        main()
+
+        # 各INSERTのパラメータを検証
+        for call in cur.execute.call_args_list:
+            sql = call[0][0]
+            params = call[0][1]
+            assert "INSERT INTO documents" in sql
+            assert len(params) == 4  # (content, embedding, source, chunk_index)
+            assert isinstance(params[0], str)   # content
+            assert isinstance(params[1], list)   # embedding as list
+            assert isinstance(params[2], str)    # source
+            assert isinstance(params[3], int)    # chunk_index

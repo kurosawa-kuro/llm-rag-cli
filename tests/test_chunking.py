@@ -57,6 +57,38 @@ class TestSplitText:
         result_large = split_text(text, chunk_size=800, overlap=50)
         assert len(result_small) > len(result_large)
 
+    def test_text_exactly_chunk_size_returns_single_chunk(self):
+        from app.chunking import split_text
+
+        text = "a" * 500
+        result = split_text(text, chunk_size=500)
+        assert result == [text]
+
+    def test_each_chunk_within_size_limit(self):
+        from app.chunking import split_text
+
+        text = "hello world this is testing " * 50
+        result = split_text(text, chunk_size=200, overlap=50)
+        for chunk in result:
+            assert len(chunk) <= 200 + 50  # some tolerance for word boundary
+
+    def test_japanese_text_splits_correctly(self):
+        from app.chunking import split_text
+
+        text = "これはテストです " * 100
+        result = split_text(text, chunk_size=100, overlap=20)
+        assert len(result) > 1
+        all_text = "".join(result)
+        # 元のテキストの全単語が含まれる
+        assert "これはテストです" in all_text
+
+    def test_default_parameters(self):
+        from app.chunking import split_text
+
+        text = "word " * 200  # 1000 chars
+        result = split_text(text)  # defaults: chunk_size=500, overlap=100
+        assert len(result) > 1
+
 
 class TestSplitByStructure:
     def test_splits_by_double_newline(self):
@@ -106,3 +138,38 @@ class TestSplitByStructure:
         text = "short para\n\nanother short"
         result = split_by_structure(text, chunk_size=300, overlap=50)
         assert result == ["short para", "another short"]
+
+    def test_preserves_paragraph_order(self):
+        from app.chunking import split_by_structure
+
+        text = "first\n\nsecond\n\nthird\n\nfourth"
+        result = split_by_structure(text)
+        assert result == ["first", "second", "third", "fourth"]
+
+    def test_japanese_paragraphs(self):
+        from app.chunking import split_by_structure
+
+        text = "最初の段落です。\n\n2番目の段落です。\n\n3番目の段落です。"
+        result = split_by_structure(text)
+        assert result == ["最初の段落です。", "2番目の段落です。", "3番目の段落です。"]
+
+    def test_mixed_long_and_short_paragraphs(self):
+        from app.chunking import split_by_structure
+
+        short = "short"
+        long_para = "word " * 200  # 1000 chars
+        text = f"{short}\n\n{long_para}\n\n{short}"
+        result = split_by_structure(text, chunk_size=300, overlap=50)
+        assert result[0] == short
+        assert result[-1] == short
+        assert len(result) > 3  # short + multiple splits + short
+
+    def test_none_chunk_size_returns_paragraphs_as_is(self):
+        from app.chunking import split_by_structure
+
+        long_para = "word " * 200
+        text = f"short\n\n{long_para}"
+        result = split_by_structure(text, chunk_size=None)
+        assert len(result) == 2
+        assert result[0] == "short"
+        assert result[1] == long_para.strip()

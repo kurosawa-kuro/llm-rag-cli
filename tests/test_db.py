@@ -73,3 +73,51 @@ class TestInitDb:
         init_db()
 
         conn.commit.assert_called_once()
+
+    @patch("app.db.get_conn")
+    def test_creates_id_serial_primary_key(self, mock_get_conn, mock_db_connection):
+        conn, cur = mock_db_connection
+        mock_get_conn.return_value = conn
+        from app.db import init_db
+
+        init_db()
+
+        calls = [str(c) for c in cur.execute.call_args_list]
+        assert any("id SERIAL PRIMARY KEY" in c for c in calls)
+
+    @patch("app.db.get_conn")
+    def test_creates_content_text_column(self, mock_get_conn, mock_db_connection):
+        conn, cur = mock_db_connection
+        mock_get_conn.return_value = conn
+        from app.db import init_db
+
+        init_db()
+
+        calls = [str(c) for c in cur.execute.call_args_list]
+        assert any("content TEXT" in c for c in calls)
+
+    @patch("app.db.get_conn")
+    def test_executes_extension_before_table(self, mock_get_conn, mock_db_connection):
+        conn, cur = mock_db_connection
+        mock_get_conn.return_value = conn
+        from app.db import init_db
+
+        init_db()
+
+        calls = [str(c) for c in cur.execute.call_args_list]
+        ext_idx = next(i for i, c in enumerate(calls) if "CREATE EXTENSION" in c)
+        tbl_idx = next(i for i, c in enumerate(calls) if "CREATE TABLE" in c)
+        assert ext_idx < tbl_idx
+
+    @patch("app.db.get_conn")
+    def test_idempotent_uses_if_not_exists(self, mock_get_conn, mock_db_connection):
+        conn, cur = mock_db_connection
+        mock_get_conn.return_value = conn
+        from app.db import init_db
+
+        init_db()
+
+        calls = [str(c) for c in cur.execute.call_args_list]
+        for c in calls:
+            if "CREATE" in c:
+                assert "IF NOT EXISTS" in c
