@@ -1,4 +1,4 @@
-.PHONY: up down build shell test test-unit test-integration ingest ask lint evaluate
+.PHONY: up down build shell test test-unit test-integration test-heavy ingest ask lint evaluate
 
 up:
 	docker compose up -d
@@ -16,10 +16,13 @@ test:
 	docker compose exec app python -m pytest tests/ -v
 
 test-unit:
-	docker compose exec app python -m pytest tests/ -v -m "not integration"
+	docker compose exec app python -m pytest tests/ -v -m "not integration and not heavy"
 
 test-integration:
-	docker compose exec app python -m pytest tests/ -v -m integration
+	docker compose exec app python -m pytest tests/ -v -m "integration and not heavy"
+
+test-heavy:
+	docker compose exec app python -m pytest tests/ -v -m heavy
 
 ingest:
 	docker compose exec app python -m app.ingest

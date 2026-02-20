@@ -73,3 +73,31 @@ def test_vectorstore(test_embeddings):
     )
     yield vs
     vs.delete_collection()
+
+
+# --- heavy統合テスト用 fixture（実Embeddings） ---
+
+
+@pytest.fixture
+def real_vectorstore():
+    """実HuggingFaceEmbeddings + 実PGVectorを使うheavy統合テスト用。テスト後にコレクション削除。"""
+    import uuid
+    from langchain_postgres import PGVector
+    from app.embeddings import create_embeddings
+    from app.config import CONNECTION_STRING
+
+    collection_name = f"test_heavy_{uuid.uuid4().hex[:8]}"
+    embeddings = create_embeddings()
+
+    vs = PGVector(
+        embeddings=embeddings,
+        collection_name=collection_name,
+        connection=CONNECTION_STRING,
+        use_jsonb=True,
+        pre_delete_collection=True,
+    )
+    yield vs
+    try:
+        vs.delete_collection()
+    except Exception:
+        pass
