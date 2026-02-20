@@ -1,4 +1,4 @@
-from app.config import LLM_MODEL_PATH, LLM_N_CTX, LLM_MAX_TOKENS
+from rag.core.config import LLM_MODEL_PATH, LLM_N_CTX, LLM_MAX_TOKENS
 
 
 def create_llm():

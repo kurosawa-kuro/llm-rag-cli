@@ -1,8 +1,8 @@
 import json
-from app.graph import get_graph
-from app.container import get_container
-from app.metrics import retrieval_at_k, faithfulness, exact_match, measure_latency
-from app.config import CHUNK_SIZE, CHUNK_OVERLAP, SEARCH_K, RERANK_TOP_K
+from rag.pipeline.graph import get_graph
+from rag.core.container import get_container
+from rag.evaluation.metrics import retrieval_at_k, faithfulness, exact_match, measure_latency
+from rag.core.config import CHUNK_SIZE, CHUNK_OVERLAP, SEARCH_K, RERANK_TOP_K
 
 
 def load_questions(path="data/eval_questions.json"):

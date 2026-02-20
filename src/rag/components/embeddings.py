@@ -1,4 +1,4 @@
-from app.config import EMBED_MODEL
+from rag.core.config import EMBED_MODEL
 
 
 def create_embeddings():

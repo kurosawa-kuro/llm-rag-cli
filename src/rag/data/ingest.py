@@ -3,9 +3,9 @@ from pypdf import PdfReader
 import pandas as pd
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from app.container import get_container
-from app.chunking import split_by_structure
-from app.config import CHUNK_SIZE, CHUNK_OVERLAP
+from rag.core.container import get_container
+from rag.data.chunking import split_by_structure
+from rag.core.config import CHUNK_SIZE, CHUNK_OVERLAP
 
 DATA_DIR = "data"
 

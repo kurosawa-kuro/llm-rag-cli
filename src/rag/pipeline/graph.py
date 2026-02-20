@@ -38,7 +38,7 @@ def create_generate(container):
 
 def build_rag_graph(*, container=None):
     if container is None:
-        from app.container import get_container
+        from rag.core.container import get_container
         container = get_container()
 
     workflow = StateGraph(RAGState)

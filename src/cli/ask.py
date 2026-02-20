@@ -1,6 +1,6 @@
 import sys
-from app.graph import get_graph
-from app.container import get_container
+from rag.pipeline.graph import get_graph
+from rag.core.container import get_container
 
 
 def main():

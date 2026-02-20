@@ -4,8 +4,11 @@ from pathlib import Path
 import yaml
 
 
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+
 def _load_settings():
-    settings_path = Path(__file__).resolve().parent.parent / "env" / "config" / "setting.yaml"
+    settings_path = _PROJECT_ROOT / "env" / "config" / "setting.yaml"
     with open(settings_path) as f:
         return yaml.safe_load(f)
 

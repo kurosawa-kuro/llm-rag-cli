@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from app.config import SEARCH_K, RERANK_TOP_K
-from app.interfaces import (
+from rag.core.config import SEARCH_K, RERANK_TOP_K
+from rag.core.interfaces import (
     VectorStoreProtocol,
     RerankerProtocol,
     LLMProtocol,
@@ -42,42 +42,42 @@ class AppContainer:
     @property
     def embeddings(self):
         if self._embeddings is None:
-            from app.embeddings import create_embeddings
+            from rag.components.embeddings import create_embeddings
             self._embeddings = create_embeddings()
         return self._embeddings
 
     @property
     def vectorstore(self) -> VectorStoreProtocol:
         if self._vectorstore is None:
-            from app.db import create_vectorstore
+            from rag.infra.db import create_vectorstore
             self._vectorstore = create_vectorstore(self.embeddings)
         return self._vectorstore
 
     @property
     def reranker(self) -> RerankerProtocol:
         if self._reranker is None:
-            from app.reranker import create_reranker
+            from rag.components.reranker import create_reranker
             self._reranker = create_reranker()
         return self._reranker
 
     @property
     def llm(self) -> LLMProtocol:
         if self._llm is None:
-            from app.llm import create_llm
+            from rag.components.llm import create_llm
             self._llm = create_llm()
         return self._llm
 
     @property
     def prompt_builder(self) -> PromptBuilder:
         if self._prompt_builder is None:
-            from app.prompting import build_prompt
+            from rag.components.prompting import build_prompt
             self._prompt_builder = build_prompt
         return self._prompt_builder
 
     @property
     def retrieval_strategy(self) -> RetrievalStrategyProtocol:
         if self._retrieval_strategy is None:
-            from app.retrieval import TwoStageRetrieval
+            from rag.pipeline.retrieval import TwoStageRetrieval
 
             self._retrieval_strategy = TwoStageRetrieval(
                 vectorstore=self.vectorstore,

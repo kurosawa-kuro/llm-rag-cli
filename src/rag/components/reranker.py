@@ -1,4 +1,4 @@
-from app.config import RERANKER_MODEL, RERANK_TOP_K
+from rag.core.config import RERANKER_MODEL, RERANK_TOP_K
 
 
 def create_reranker():

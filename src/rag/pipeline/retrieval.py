@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import List
 from langchain_core.documents import Document
 
-from app.interfaces import VectorStoreProtocol, RerankerProtocol
+from rag.core.interfaces import VectorStoreProtocol, RerankerProtocol
 
 
 @dataclass(frozen=True)

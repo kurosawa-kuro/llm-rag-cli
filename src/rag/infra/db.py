@@ -1,5 +1,5 @@
 from langchain_postgres import PGVector
-from app.config import CONNECTION_STRING, COLLECTION_NAME
+from rag.core.config import CONNECTION_STRING, COLLECTION_NAME
 
 
 def create_vectorstore(embeddings):
