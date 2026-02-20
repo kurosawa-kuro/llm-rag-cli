@@ -114,3 +114,45 @@ class TestRerank:
 
         assert result[0]["content"] == "text"
         assert result[0]["source"] == "file.pdf:p1"
+
+    @patch("app.reranker.get_model")
+    def test_single_doc_returns_that_doc(self, mock_get_model):
+        mock_get_model.return_value.predict.return_value = np.array([0.8])
+        docs = [{"content": "only doc", "source": "src1"}]
+        from app.reranker import rerank
+
+        result = rerank("query", docs, top_k=3)
+        assert len(result) == 1
+        assert result[0]["content"] == "only doc"
+
+    @patch("app.reranker.get_model")
+    def test_top_k_1_returns_highest_scored(self, mock_get_model):
+        mock_get_model.return_value.predict.return_value = np.array([0.2, 0.8, 0.5])
+        docs = [
+            {"content": "low", "source": "s0"},
+            {"content": "high", "source": "s1"},
+            {"content": "mid", "source": "s2"},
+        ]
+        from app.reranker import rerank
+
+        result = rerank("query", docs, top_k=1)
+        assert len(result) == 1
+        assert result[0]["content"] == "high"
+
+    @patch("app.reranker.get_model")
+    def test_identical_scores_returns_top_k(self, mock_get_model):
+        mock_get_model.return_value.predict.return_value = np.array([0.5, 0.5, 0.5, 0.5])
+        docs = [{"content": f"doc{i}", "source": f"s{i}"} for i in range(4)]
+        from app.reranker import rerank
+
+        result = rerank("query", docs, top_k=2)
+        assert len(result) == 2
+
+    @patch("app.reranker.get_model")
+    def test_returns_list_type(self, mock_get_model):
+        mock_get_model.return_value.predict.return_value = np.array([0.5])
+        docs = [{"content": "doc", "source": "s"}]
+        from app.reranker import rerank
+
+        result = rerank("query", docs, top_k=1)
+        assert isinstance(result, list)

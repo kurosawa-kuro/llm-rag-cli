@@ -98,3 +98,75 @@ class TestMeasureLatency:
 
         with pytest.raises(ValueError):
             measure_latency(failing_fn)
+
+    def test_returns_complex_result(self):
+        from app.metrics import measure_latency
+
+        result, _ = measure_latency(lambda: {"key": "value", "list": [1, 2, 3]})
+        assert result == {"key": "value", "list": [1, 2, 3]}
+
+    def test_elapsed_is_non_negative(self):
+        from app.metrics import measure_latency
+
+        _, elapsed = measure_latency(lambda: None)
+        assert elapsed >= 0
+
+
+class TestRetrievalAtKExtended:
+    def test_multiple_results_with_match_at_end(self):
+        from app.metrics import retrieval_at_k
+
+        results = [
+            {"content": "...", "source": "a.csv:r1"},
+            {"content": "...", "source": "b.csv:r2"},
+            {"content": "...", "source": "target.pdf:p1"},
+        ]
+        assert retrieval_at_k(results, "target.pdf:p1") is True
+
+    def test_duplicate_sources_in_results(self):
+        from app.metrics import retrieval_at_k
+
+        results = [
+            {"content": "...", "source": "faq.csv:r1"},
+            {"content": "...", "source": "faq.csv:r1"},
+        ]
+        assert retrieval_at_k(results, "faq.csv:r1") is True
+
+    def test_source_with_high_page_number(self):
+        from app.metrics import retrieval_at_k
+
+        results = [{"content": "...", "source": "doc.pdf:p100"}]
+        assert retrieval_at_k(results, "doc.pdf:p100") is True
+
+    def test_single_result_matches(self):
+        from app.metrics import retrieval_at_k
+
+        results = [{"content": "...", "source": "faq.csv:r1"}]
+        assert retrieval_at_k(results, "faq.csv:r1") is True
+
+
+class TestFaithfulnessExtended:
+    def test_single_keyword_found(self):
+        from app.metrics import faithfulness
+
+        assert faithfulness("パスワードをリセット", ["パスワード"]) == 1.0
+
+    def test_keyword_as_substring_in_longer_word(self):
+        from app.metrics import faithfulness
+
+        # "パスワード" is substring of "パスワードリセット"
+        assert faithfulness("パスワードリセットが必要", ["パスワード"]) == 1.0
+
+    def test_japanese_keywords(self):
+        from app.metrics import faithfulness
+
+        answer = "PostgreSQLとDockerを使用しています"
+        keywords = ["PostgreSQL", "Docker"]
+        assert faithfulness(answer, keywords) == 1.0
+
+    def test_many_keywords_partial_match(self):
+        from app.metrics import faithfulness
+
+        answer = "料金プランの変更はダッシュボードから"
+        keywords = ["料金プラン", "変更", "ダッシュボード", "メール"]
+        assert faithfulness(answer, keywords) == pytest.approx(3.0 / 4.0)
