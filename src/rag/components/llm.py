@@ -7,6 +7,7 @@ def create_llm():
         model_path=LLM_MODEL_PATH,
         n_ctx=LLM_N_CTX,
         max_tokens=LLM_MAX_TOKENS,
+        stop=["質問:", "\n\n"],
         verbose=False,
     )
 

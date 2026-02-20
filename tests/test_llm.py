@@ -13,6 +13,7 @@ class TestCreateLlm:
             model_path="./models/llama-2-7b.Q4_K_M.gguf",
             n_ctx=2048,
             max_tokens=300,
+            stop=["質問:", "\n\n"],
             verbose=False,
         )
 

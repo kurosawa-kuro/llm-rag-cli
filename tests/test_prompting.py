@@ -3,7 +3,7 @@ class TestBuildPrompt:
         from rag.components.prompting import build_prompt
 
         result = build_prompt("質問テスト", ["context1"])
-        assert "以下の情報を基に回答してください" in result
+        assert "簡潔に回答してください" in result
 
     def test_includes_query(self):
         from rag.components.prompting import build_prompt
