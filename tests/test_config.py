@@ -57,12 +57,12 @@ class TestConstants:
     def test_chunk_size_default(self):
         from rag.core.config import CHUNK_SIZE
 
-        assert CHUNK_SIZE == 500
+        assert CHUNK_SIZE == 350
 
     def test_chunk_overlap_default(self):
         from rag.core.config import CHUNK_OVERLAP
 
-        assert CHUNK_OVERLAP == 100
+        assert CHUNK_OVERLAP == 80
 
     def test_reranker_model(self):
         from rag.core.config import RERANKER_MODEL
@@ -72,12 +72,12 @@ class TestConstants:
     def test_search_k_default(self):
         from rag.core.config import SEARCH_K
 
-        assert SEARCH_K == 10
+        assert SEARCH_K == 20
 
     def test_rerank_top_k_default(self):
         from rag.core.config import RERANK_TOP_K
 
-        assert RERANK_TOP_K == 3
+        assert RERANK_TOP_K == 5
 
     def test_llm_n_ctx(self):
         from rag.core.config import LLM_N_CTX

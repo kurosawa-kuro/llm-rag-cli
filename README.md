@@ -293,3 +293,14 @@ docker compose exec app python -m pytest tests/ -v -m heavy
 | 設定管理 | pyyaml（setting.yaml） |
 | コンテナ | Docker Compose |
 | テスト | pytest（280テスト: 単体268 + DB統合7 + heavy3、17ファイル） |
+
+  恒久的な対処（dockerグループに追加）:                                                                                                       
+  sudo usermod -aG docker $USER
+  newgrp docker
+
+● pgAdmin を追加しました。
+
+  アクセス方法:                                                                                                                               
+  - URL: http://localhost:8080
+  - ログイン: admin@example.com / admin                                                                                                       
+  - DBサーバー「RAG DB」が自動登録済み（初回接続時にパスワード rag を入力）  

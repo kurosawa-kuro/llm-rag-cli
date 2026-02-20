@@ -13,11 +13,14 @@ class TwoStageRetrieval:
     reranker: RerankerProtocol
     search_k: int
     rerank_top_k: int
+    score_threshold: float = 0.5
 
     def retrieve(self, query: str) -> List[Document]:
-        # 1st stage: vector search
-        retriever = self.vectorstore.as_retriever(search_kwargs={"k": self.search_k})
-        docs = retriever.invoke(query) or []
+        # 1st stage: vector search with score filtering
+        results = self.vectorstore.similarity_search_with_score(
+            query, k=self.search_k,
+        )
+        docs = [doc for doc, score in results if score <= self.score_threshold]
         if not docs:
             return []
 

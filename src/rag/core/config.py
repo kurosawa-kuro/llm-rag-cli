@@ -39,6 +39,7 @@ RERANKER_MODEL = _settings["models"]["reranker_model"]
 
 SEARCH_K = int(os.getenv("SEARCH_K", _settings["search"]["search_k"]))
 RERANK_TOP_K = int(os.getenv("RERANK_TOP_K", _settings["search"]["rerank_top_k"]))
+SCORE_THRESHOLD = float(os.getenv("SCORE_THRESHOLD", _settings["search"]["score_threshold"]))
 
 LLM_N_CTX = _settings["llm"]["n_ctx"]
 LLM_MAX_TOKENS = _settings["llm"]["max_tokens"]

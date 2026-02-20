@@ -10,6 +10,7 @@ class RetrieverProtocol(Protocol):
 
 class VectorStoreProtocol(Protocol):
     def as_retriever(self, *, search_kwargs: dict) -> RetrieverProtocol: ...
+    def similarity_search_with_score(self, query: str, k: int = 4) -> list: ...
 
 
 class RerankerProtocol(Protocol):

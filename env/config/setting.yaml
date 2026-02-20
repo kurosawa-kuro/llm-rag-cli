@@ -15,11 +15,12 @@ llm:
   max_tokens: 300
 
 chunking:
-  chunk_size: 500
-  chunk_overlap: 100
+  chunk_size: 350
+  chunk_overlap: 80
 
 search:
-  search_k: 10
-  rerank_top_k: 3
+  search_k: 20
+  rerank_top_k: 5
+  score_threshold: 0.5
 
 collection_name: documents

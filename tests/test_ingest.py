@@ -92,7 +92,8 @@ class TestLoadCsvs:
 
         mock_read_csv.assert_called_once_with("data/csv/data.csv")
         assert len(result) == 1
-        assert result[0][0] == "name:Alice age:30"
+        assert "Alice" in result[0][0]
+        assert "30" in result[0][0]
         assert result[0][1] == "data.csv:r1"
 
     @patch("rag.data.ingest.pd.read_csv")
@@ -107,8 +108,8 @@ class TestLoadCsvs:
 
         result = load_csvs()
         assert len(result) == 2
-        assert "col1:a" in result[0][0]
-        assert "col2:1" in result[0][0]
+        assert "a" in result[0][0]
+        assert "1" in result[0][0]
         assert result[0][1] == "data.csv:r1"
         assert result[1][1] == "data.csv:r2"
 
@@ -171,14 +172,15 @@ class TestMain:
     @patch("rag.data.ingest.get_container")
     @patch("rag.data.ingest.load_csvs", return_value=[("csv row text", "data.csv:r1")])
     @patch("rag.data.ingest.load_pdfs", return_value=[])
-    def test_csv_uses_text_splitter(self, mock_pdfs, mock_csvs, mock_get_container):
+    def test_csv_one_row_one_document(self, mock_pdfs, mock_csvs, mock_get_container):
         from rag.data.ingest import main
 
         main()
 
         docs = mock_get_container.return_value.vectorstore.add_documents.call_args[0][0]
-        # Short CSV text = 1 chunk
         assert len(docs) == 1
+        assert docs[0].page_content == "csv row text"
+        assert docs[0].metadata["chunk_index"] == 0
 
     @patch("rag.data.ingest.get_container")
     @patch("rag.data.ingest.load_csvs", return_value=[])

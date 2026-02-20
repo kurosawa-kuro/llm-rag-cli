@@ -24,7 +24,16 @@ def create_retrieve(container):
 def create_generate(container):
     def generate_node(state: RAGState) -> dict:
         contexts = [doc.page_content for doc in state.reranked_documents]
-        sources = [doc.metadata.get("source", "") for doc in state.reranked_documents]
+        sources = list(dict.fromkeys(
+            doc.metadata.get("source", "") for doc in state.reranked_documents
+        ))
+        if not contexts:
+            return {
+                "contexts": [],
+                "prompt": "",
+                "answer": "該当する情報が見つかりませんでした。",
+                "sources": [],
+            }
         prompt = container.prompt_builder(state.query, contexts)
         answer = container.llm.invoke(prompt)
         return {

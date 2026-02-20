@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from rag.core.config import SEARCH_K, RERANK_TOP_K
+from rag.core.config import SEARCH_K, RERANK_TOP_K, SCORE_THRESHOLD
 from rag.core.interfaces import (
     VectorStoreProtocol,
     RerankerProtocol,
@@ -17,6 +17,7 @@ from rag.core.interfaces import (
 class RagSettings:
     search_k: int = SEARCH_K
     rerank_top_k: int = RERANK_TOP_K
+    score_threshold: float = SCORE_THRESHOLD
 
 
 class AppContainer:
@@ -84,6 +85,7 @@ class AppContainer:
                 reranker=self.reranker,
                 search_k=self.settings.search_k,
                 rerank_top_k=self.settings.rerank_top_k,
+                score_threshold=self.settings.score_threshold,
             )
         return self._retrieval_strategy
 

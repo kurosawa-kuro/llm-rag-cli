@@ -7,15 +7,17 @@ class TestRagSettings:
         from rag.core.container import RagSettings
 
         settings = RagSettings()
-        assert settings.search_k == 10
-        assert settings.rerank_top_k == 3
+        assert settings.search_k == 20
+        assert settings.rerank_top_k == 5
+        assert settings.score_threshold == 0.5
 
     def test_custom_values(self):
         from rag.core.container import RagSettings
 
-        settings = RagSettings(search_k=20, rerank_top_k=5)
+        settings = RagSettings(search_k=20, rerank_top_k=5, score_threshold=0.5)
         assert settings.search_k == 20
         assert settings.rerank_top_k == 5
+        assert settings.score_threshold == 0.5
 
 
 class TestAppContainer:
@@ -24,7 +26,7 @@ class TestAppContainer:
 
         container = AppContainer()
         assert isinstance(container.settings, RagSettings)
-        assert container.settings.search_k == 10
+        assert container.settings.search_k == 20
 
     def test_custom_settings(self):
         from rag.core.container import AppContainer, RagSettings
@@ -148,8 +150,8 @@ class TestAppContainer:
         assert isinstance(strategy, TwoStageRetrieval)
         assert strategy.vectorstore is mock_vs
         assert strategy.reranker is mock_reranker
-        assert strategy.search_k == 10
-        assert strategy.rerank_top_k == 3
+        assert strategy.search_k == 20
+        assert strategy.rerank_top_k == 5
 
     def test_retrieval_strategy_cached_after_first_access(self):
         from rag.core.container import AppContainer

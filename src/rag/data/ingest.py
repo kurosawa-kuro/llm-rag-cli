@@ -1,7 +1,6 @@
 import os
 from pypdf import PdfReader
 import pandas as pd
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from rag.core.container import get_container
 from rag.data.chunking import split_by_structure
@@ -26,20 +25,24 @@ def load_csvs():
         if file.endswith(".csv"):
             df = pd.read_csv(f"{DATA_DIR}/csv/{file}")
             for idx, row in df.iterrows():
-                text = " ".join([f"{k}:{v}" for k, v in row.items()])
+                content_parts = []
+                for k, v in row.items():
+                    if k.lower() not in ("category", "カテゴリ"):
+                        content_parts.append(str(v))
+                text = "\n".join(content_parts)
                 texts.append((text, f"{file}:r{idx+1}"))
     return texts
 
 
 def main():
     container = get_container()
+
+    # 既存ドキュメントをクリア（コレクション単位で削除→再作成）
+    container.vectorstore.delete_collection()
+    container.vectorstore.create_tables_if_not_exists()
+
     pdf_items = load_pdfs()
     csv_items = load_csvs()
-
-    csv_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-    )
 
     documents = []
 
@@ -52,15 +55,13 @@ def main():
                 metadata={"source": source, "chunk_index": i},
             ))
 
-    # CSV: RecursiveCharacterTextSplitter
+    # CSV: 1行=1ドキュメント（分割なし）
     for text, source in csv_items:
-        split_docs = csv_splitter.create_documents(
-            [text],
-            metadatas=[{"source": source}],
-        )
-        for i, doc in enumerate(split_docs):
-            doc.metadata["chunk_index"] = i
-            documents.append(doc)
+        if text.strip():
+            documents.append(Document(
+                page_content=text,
+                metadata={"source": source, "chunk_index": 0},
+            ))
 
     if documents:
         container.vectorstore.add_documents(documents)

@@ -16,7 +16,7 @@ def reset_graph():
 @pytest.fixture
 def mock_container():
     container = MagicMock(spec=AppContainer)
-    container.settings = RagSettings(search_k=10, rerank_top_k=3)
+    container.settings = RagSettings(search_k=20, rerank_top_k=5)
     container.prompt_builder = lambda q, c: f"以下の情報を基に回答してください:\n\n{c}\n\n質問:{q}\n回答:"
     return container
 
@@ -144,15 +144,15 @@ class TestGenerateNode:
         mock_container.llm.invoke.assert_called_once()
 
     def test_empty_reranked_documents(self, mock_container):
-        mock_container.llm.invoke.return_value = "回答なし"
         from rag.pipeline.graph import create_generate, RAGState
 
         generate = create_generate(mock_container)
         result = generate(RAGState(query="テスト", reranked_documents=[]))
 
-        assert result["answer"] == "回答なし"
+        assert result["answer"] == "該当する情報が見つかりませんでした。"
         assert result["contexts"] == []
         assert result["sources"] == []
+        mock_container.llm.invoke.assert_not_called()
 
     def test_document_without_source_returns_empty_string(self, mock_container):
         mock_container.llm.invoke.return_value = "回答"
