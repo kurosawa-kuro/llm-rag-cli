@@ -2,7 +2,7 @@ PYTHON ?= python3
 DOCKER_RUN = docker compose exec app
 export PYTHONPATH := src
 
-.PHONY: up down build shell test test-unit test-integration test-heavy ingest ask lint evaluate
+.PHONY: up down build shell test test-unit test-integration test-heavy ingest ask lint evaluate evaluate-retrieval
 
 up:
 	docker compose up -d
@@ -39,3 +39,6 @@ lint:
 
 evaluate:
 	$(PYTHON) -m rag.evaluation.evaluate
+
+evaluate-retrieval:
+	$(PYTHON) -m rag.evaluation.evaluate --retrieval-only

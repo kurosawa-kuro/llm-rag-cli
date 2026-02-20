@@ -54,6 +54,7 @@ make lint               # syntax check all src/ modules via py_compile (15 modul
 make ingest             # ingest PDFs/CSVs into vector DB
 make ask Q="質問文"      # query the RAG system
 make evaluate           # run evaluation pipeline
+make evaluate-retrieval # run retrieval-only evaluation (no LLM needed)
 ```
 
 To run a single test file or test class inside the container:
@@ -91,7 +92,7 @@ data/{pdf,csv}/  →  ingest.py  →  chunking  →  container.vectorstore (PGVe
 - **`rag.pipeline.graph`** — `RAGState` dataclass, two-node `StateGraph` (retrieve → generate → END). `create_retrieve(container)` and `create_generate(container)` factory functions. Singleton via `get_graph()`
 - **`rag.core.config`** — Loads settings from `env/config/setting.yaml` via `_load_settings()`. Env vars override YAML defaults. Exports `CONNECTION_STRING`, `COLLECTION_NAME`, and all parameter constants
 - **`rag.components.prompting`** — `build_prompt(query, contexts)` for Japanese prompt template
-- **`rag.evaluation.metrics`** — `retrieval_at_k`, `faithfulness`, `exact_match`, `measure_latency`
+- **`rag.evaluation.metrics`** — `retrieval_at_k`, `faithfulness`, `exact_match`, `measure_latency`, `context_relevance`, `retrieval_mrr`
 
 Infrastructure modules (`db.py`, `embeddings.py`, `llm.py`, `reranker.py`) provide stateless factory functions (`create_*`). `AppContainer` manages lifecycle via lazy properties.
 
@@ -116,7 +117,7 @@ Infrastructure modules (`db.py`, `embeddings.py`, `llm.py`, `reranker.py`) provi
 | CHUNK_SIZE | 350 | Text chunk size in characters |
 | CHUNK_OVERLAP | 80 | Overlap between chunks |
 | SEARCH_K | 20 | Number of candidates from vector search |
-| RERANK_TOP_K | 5 | Number of results after reranking |
+| RERANK_TOP_K | 3 | Number of results after reranking |
 | SCORE_THRESHOLD | 0.5 | Score threshold for vector search (cosine distance) |
 
 Defaults are defined in `env/config/setting.yaml`. Environment variables take precedence when set.

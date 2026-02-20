@@ -1,5 +1,6 @@
 import time
 import pytest
+from langchain_core.documents import Document
 
 
 class TestRetrievalAtK:
@@ -249,3 +250,84 @@ class TestFaithfulnessExtended:
         answer = "料金プランの変更はダッシュボードから"
         keywords = ["料金プラン", "変更", "ダッシュボード", "メール"]
         assert faithfulness(answer, keywords) == pytest.approx(3.0 / 4.0)
+
+
+class TestContextRelevance:
+    def test_all_keywords_in_documents(self):
+        from rag.evaluation.metrics import context_relevance
+
+        docs = [Document(page_content="パスワードをリセットするにはメールアドレスが必要")]
+        assert context_relevance(docs, ["パスワード", "リセット", "メールアドレス"]) == 1.0
+
+    def test_no_keywords_in_documents(self):
+        from rag.evaluation.metrics import context_relevance
+
+        docs = [Document(page_content="こんにちは")]
+        assert context_relevance(docs, ["パスワード", "リセット"]) == 0.0
+
+    def test_partial_keywords_in_documents(self):
+        from rag.evaluation.metrics import context_relevance
+
+        docs = [Document(page_content="パスワードの変更")]
+        assert context_relevance(docs, ["パスワード", "リセット", "メールアドレス"]) == pytest.approx(1.0 / 3.0)
+
+    def test_keywords_spread_across_documents(self):
+        from rag.evaluation.metrics import context_relevance
+
+        docs = [
+            Document(page_content="パスワードの管理"),
+            Document(page_content="リセット手順"),
+        ]
+        assert context_relevance(docs, ["パスワード", "リセット"]) == 1.0
+
+    def test_empty_documents(self):
+        from rag.evaluation.metrics import context_relevance
+
+        assert context_relevance([], ["keyword"]) == 0.0
+
+    def test_empty_keywords(self):
+        from rag.evaluation.metrics import context_relevance
+
+        docs = [Document(page_content="any content")]
+        assert context_relevance(docs, []) == 1.0
+
+
+class TestRetrievalMrr:
+    def test_expected_source_at_first_position(self):
+        from rag.evaluation.metrics import retrieval_mrr
+
+        docs = [
+            Document(page_content="a", metadata={"source": "faq.csv:r1"}),
+            Document(page_content="b", metadata={"source": "faq.csv:r2"}),
+        ]
+        assert retrieval_mrr(docs, "faq.csv:r1") == 1.0
+
+    def test_expected_source_at_second_position(self):
+        from rag.evaluation.metrics import retrieval_mrr
+
+        docs = [
+            Document(page_content="a", metadata={"source": "faq.csv:r2"}),
+            Document(page_content="b", metadata={"source": "faq.csv:r1"}),
+        ]
+        assert retrieval_mrr(docs, "faq.csv:r1") == 0.5
+
+    def test_expected_source_at_third_position(self):
+        from rag.evaluation.metrics import retrieval_mrr
+
+        docs = [
+            Document(page_content="a", metadata={"source": "other1"}),
+            Document(page_content="b", metadata={"source": "other2"}),
+            Document(page_content="c", metadata={"source": "faq.csv:r1"}),
+        ]
+        assert retrieval_mrr(docs, "faq.csv:r1") == pytest.approx(1.0 / 3.0)
+
+    def test_expected_source_not_found(self):
+        from rag.evaluation.metrics import retrieval_mrr
+
+        docs = [Document(page_content="a", metadata={"source": "other"})]
+        assert retrieval_mrr(docs, "faq.csv:r1") == 0.0
+
+    def test_empty_documents(self):
+        from rag.evaluation.metrics import retrieval_mrr
+
+        assert retrieval_mrr([], "faq.csv:r1") == 0.0

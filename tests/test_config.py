@@ -77,7 +77,7 @@ class TestConstants:
     def test_rerank_top_k_default(self):
         from rag.core.config import RERANK_TOP_K
 
-        assert RERANK_TOP_K == 5
+        assert RERANK_TOP_K == 3
 
     def test_llm_n_ctx(self):
         from rag.core.config import LLM_N_CTX

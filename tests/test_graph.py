@@ -16,7 +16,7 @@ def reset_graph():
 @pytest.fixture
 def mock_container():
     container = MagicMock(spec=AppContainer)
-    container.settings = RagSettings(search_k=20, rerank_top_k=5)
+    container.settings = RagSettings(search_k=20, rerank_top_k=3)
     container.prompt_builder = lambda q, c: f"以下の情報を基に回答してください:\n\n{c}\n\n質問:{q}\n回答:"
     return container
 

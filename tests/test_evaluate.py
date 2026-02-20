@@ -3,6 +3,7 @@ import os
 import re
 from unittest.mock import patch, MagicMock, mock_open
 import pytest
+from langchain_core.documents import Document
 
 
 class TestEvalQuestions:
@@ -522,3 +523,164 @@ class TestMakefileTarget:
             content = f.read()
         assert "evaluate:" in content
         assert "evaluate.py" in content
+
+    def test_makefile_has_evaluate_retrieval_target(self):
+        path = os.path.join(os.path.dirname(__file__), "..", "Makefile")
+        with open(path) as f:
+            content = f.read()
+        assert "evaluate-retrieval:" in content
+
+
+class TestEvaluateSingleRetrieval:
+    def test_returns_retrieval_hit(self):
+        mock_container = MagicMock()
+        mock_container.retrieval_strategy.retrieve.return_value = [
+            Document(page_content="パスワードをリセット", metadata={"source": "faq.csv:r1"}),
+        ]
+        from rag.evaluation.evaluate import evaluate_single_retrieval
+
+        result = evaluate_single_retrieval(
+            "パスワードを忘れた", "faq.csv:r1", ["パスワード", "リセット"],
+            mock_container,
+        )
+        assert result["retrieval_hit"] is True
+
+    def test_returns_context_relevance(self):
+        mock_container = MagicMock()
+        mock_container.retrieval_strategy.retrieve.return_value = [
+            Document(page_content="パスワードの変更", metadata={"source": "faq.csv:r1"}),
+        ]
+        from rag.evaluation.evaluate import evaluate_single_retrieval
+
+        result = evaluate_single_retrieval(
+            "q", "faq.csv:r1", ["パスワード", "リセット", "メール"],
+            mock_container,
+        )
+        assert result["context_relevance"] == pytest.approx(1.0 / 3.0)
+
+    def test_returns_mrr(self):
+        mock_container = MagicMock()
+        mock_container.retrieval_strategy.retrieve.return_value = [
+            Document(page_content="a", metadata={"source": "other"}),
+            Document(page_content="b", metadata={"source": "faq.csv:r1"}),
+        ]
+        from rag.evaluation.evaluate import evaluate_single_retrieval
+
+        result = evaluate_single_retrieval(
+            "q", "faq.csv:r1", ["a"], mock_container,
+        )
+        assert result["mrr"] == 0.5
+
+    def test_returns_retrieved_count(self):
+        mock_container = MagicMock()
+        mock_container.retrieval_strategy.retrieve.return_value = [
+            Document(page_content="a", metadata={"source": "s1"}),
+            Document(page_content="b", metadata={"source": "s2"}),
+            Document(page_content="c", metadata={"source": "s3"}),
+        ]
+        from rag.evaluation.evaluate import evaluate_single_retrieval
+
+        result = evaluate_single_retrieval("q", "s1", ["a"], mock_container)
+        assert result["retrieved_count"] == 3
+
+    def test_returns_latency(self):
+        mock_container = MagicMock()
+        mock_container.retrieval_strategy.retrieve.return_value = []
+        from rag.evaluation.evaluate import evaluate_single_retrieval
+
+        result = evaluate_single_retrieval("q", "s", ["k"], mock_container)
+        assert isinstance(result["latency"], float)
+        assert result["latency"] >= 0
+
+    def test_empty_retrieval_results(self):
+        mock_container = MagicMock()
+        mock_container.retrieval_strategy.retrieve.return_value = []
+        from rag.evaluation.evaluate import evaluate_single_retrieval
+
+        result = evaluate_single_retrieval("q", "faq.csv:r1", ["keyword"], mock_container)
+        assert result["retrieval_hit"] is False
+        assert result["context_relevance"] == 0.0
+        assert result["mrr"] == 0.0
+        assert result["retrieved_count"] == 0
+
+
+class TestRunRetrievalEvaluation:
+    def test_returns_list_of_results(self):
+        mock_container = MagicMock()
+        mock_container.retrieval_strategy.retrieve.return_value = [
+            Document(page_content="answer", metadata={"source": "faq.csv:r1"}),
+        ]
+        questions = [
+            {"query": "q1", "expected_source": "faq.csv:r1", "expected_keywords": ["answer"]},
+            {"query": "q2", "expected_source": "faq.csv:r2", "expected_keywords": ["answer"]},
+        ]
+        from rag.evaluation.evaluate import run_retrieval_evaluation
+
+        results = run_retrieval_evaluation(questions, mock_container)
+        assert len(results) == 2
+
+    def test_empty_questions_returns_empty(self):
+        mock_container = MagicMock()
+        from rag.evaluation.evaluate import run_retrieval_evaluation
+
+        results = run_retrieval_evaluation([], mock_container)
+        assert results == []
+
+
+class TestPrintRetrievalReport:
+    @patch("builtins.print")
+    def test_prints_retrieval_header(self, mock_print):
+        from rag.evaluation.evaluate import print_retrieval_report
+
+        config = {"CHUNK_SIZE": 350, "CHUNK_OVERLAP": 80, "SEARCH_K": 20, "RERANK_TOP_K": 3, "SCORE_THRESHOLD": 0.5}
+        results = [{"query": "q", "retrieval_hit": True, "context_relevance": 1.0, "mrr": 1.0, "retrieved_count": 3, "latency": 0.1}]
+        print_retrieval_report(results, config)
+        printed = " ".join(str(c) for c in mock_print.call_args_list)
+        assert "Retrieval Evaluation Report" in printed
+
+    @patch("builtins.print")
+    def test_prints_score_threshold(self, mock_print):
+        from rag.evaluation.evaluate import print_retrieval_report
+
+        config = {"CHUNK_SIZE": 350, "CHUNK_OVERLAP": 80, "SEARCH_K": 20, "RERANK_TOP_K": 3, "SCORE_THRESHOLD": 0.5}
+        results = [{"query": "q", "retrieval_hit": True, "context_relevance": 1.0, "mrr": 1.0, "retrieved_count": 3, "latency": 0.1}]
+        print_retrieval_report(results, config)
+        printed = " ".join(str(c) for c in mock_print.call_args_list)
+        assert "0.5" in printed
+
+    @patch("builtins.print")
+    def test_prints_mrr(self, mock_print):
+        from rag.evaluation.evaluate import print_retrieval_report
+
+        config = {"CHUNK_SIZE": 350, "CHUNK_OVERLAP": 80, "SEARCH_K": 20, "RERANK_TOP_K": 3, "SCORE_THRESHOLD": 0.5}
+        results = [
+            {"query": "q1", "retrieval_hit": True, "context_relevance": 1.0, "mrr": 1.0, "retrieved_count": 3, "latency": 0.1},
+            {"query": "q2", "retrieval_hit": True, "context_relevance": 0.5, "mrr": 0.5, "retrieved_count": 2, "latency": 0.2},
+        ]
+        print_retrieval_report(results, config)
+        printed = " ".join(str(c) for c in mock_print.call_args_list)
+        assert "MRR" in printed
+        assert "0.750" in printed
+
+
+class TestMainRetrieval:
+    @patch("rag.evaluation.evaluate.print_retrieval_report")
+    @patch("rag.evaluation.evaluate.run_retrieval_evaluation")
+    @patch("rag.evaluation.evaluate.load_questions")
+    @patch("rag.evaluation.evaluate.get_container")
+    def test_main_retrieval_calls_pipeline(self, mock_get_container, mock_load,
+                                            mock_run, mock_print):
+        mock_load.return_value = [
+            {"query": "q", "expected_source": "s", "expected_keywords": ["k"]}
+        ]
+        mock_run.return_value = [
+            {"query": "q", "retrieval_hit": True, "context_relevance": 1.0,
+             "mrr": 1.0, "retrieved_count": 3, "latency": 0.1}
+        ]
+        from rag.evaluation.evaluate import main_retrieval
+
+        main_retrieval()
+
+        mock_load.assert_called_once()
+        mock_run.assert_called_once()
+        mock_print.assert_called_once()

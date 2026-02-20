@@ -13,7 +13,7 @@ class TestCreateReranker:
     def test_creates_reranker_with_defaults(self, mock_hf):
         from rag.components.reranker import create_reranker
         result = create_reranker()
-        assert result.top_n == 5
+        assert result.top_n == 3
         mock_hf.assert_called_once_with(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
 
     @patch("rag.components.reranker.HuggingFaceCrossEncoder")

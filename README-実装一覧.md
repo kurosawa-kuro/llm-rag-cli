@@ -34,7 +34,7 @@ data/csv/  ──┤
                                                                  ベクトル検索 (SEARCH_K=20)
                                                                   + スコア閾値フィルタ (SCORE_THRESHOLD=0.5)
                                                                         │
-                                                                 reranker (CrossEncoderReranker, RERANK_TOP_K=5)
+                                                                 reranker (CrossEncoderReranker, RERANK_TOP_K=3)
                                                                         │
          ask.py ◄───────────────────────────────────────────────────────┘
            │
@@ -86,7 +86,7 @@ data/csv/  ──┤
 4. `langchain_core.documents.Document` にメタデータ（source, chunk_index）付きで格納
 5. `container.vectorstore.add_documents()` で PostgreSQL に一括格納
 6. `ask.py` の `main()` は `get_container()` 経由で container を取得し、`get_graph(container=...)` で LangGraph パイプラインを構築
-7. LangGraph の `retrieve` ノードが `container.retrieval_strategy.retrieve()` を呼び出し、`similarity_search_with_score` でベクトル検索（SEARCH_K=20件）→ スコア閾値フィルタ（SCORE_THRESHOLD=0.5）→ Cross-Encoder リランキング（RERANK_TOP_K=5件）を実行
+7. LangGraph の `retrieve` ノードが `container.retrieval_strategy.retrieve()` を呼び出し、`similarity_search_with_score` でベクトル検索（SEARCH_K=20件）→ スコア閾値フィルタ（SCORE_THRESHOLD=0.5）→ Cross-Encoder リランキング（RERANK_TOP_K=3件）を実行
 8. `generate` ノードが `container.prompt_builder` で日本語プロンプトを構築し、`container.llm.invoke()` で回答を生成。検索結果が空の場合は LLM を呼び出さず「該当する情報が見つかりませんでした。」を返却
 9. 回答と重複排除されたソース情報を出力
 
@@ -223,7 +223,7 @@ llm-rag-cli/
 | `CHUNK_OVERLAP` | `int` | 環境変数 `CHUNK_OVERLAP` またはYAML（デフォルト 80） |
 | `RERANKER_MODEL` | `str` | YAMLの `models.reranker_model`（`"cross-encoder/ms-marco-MiniLM-L-6-v2"`） |
 | `SEARCH_K` | `int` | 環境変数 `SEARCH_K` またはYAML（デフォルト 20） |
-| `RERANK_TOP_K` | `int` | 環境変数 `RERANK_TOP_K` またはYAML（デフォルト 5） |
+| `RERANK_TOP_K` | `int` | 環境変数 `RERANK_TOP_K` またはYAML（デフォルト 3） |
 | `SCORE_THRESHOLD` | `float` | 環境変数 `SCORE_THRESHOLD` またはYAML（デフォルト 0.5） |
 
 ### src/rag/core/interfaces.py
@@ -325,6 +325,8 @@ llm-rag-cli/
 | `retrieval_at_k(sources, expected_source)` | `(list[str], str) -> bool` | ソース文字列リスト内に期待ソースが含まれるか判定 |
 | `faithfulness(answer, expected_keywords)` | `(str, list[str]) -> float` | 回答中のキーワード出現率を 0.0〜1.0 で返却。キーワード空リストは 1.0 |
 | `exact_match(answer, expected_keywords)` | `(str, list[str]) -> bool` | 全キーワードが回答中に含まれるか判定。キーワード空リストは True |
+| `context_relevance(documents, expected_keywords)` | `(list[Document], list[str]) -> float` | 検索結果ドキュメント内のキーワード出現率。検索だけでキーワードを拾えているかの指標 |
+| `retrieval_mrr(documents, expected_source)` | `(list[Document], str) -> float` | MRR（Mean Reciprocal Rank）。期待ソースの出現順位の逆数。見つからない場合は 0.0 |
 | `measure_latency(func)` | `(Callable) -> tuple[Any, float]` | 関数を実行し、結果と経過時間（秒）のタプルを返却 |
 
 ### src/rag/evaluation/evaluate.py
@@ -335,7 +337,11 @@ llm-rag-cli/
 | `evaluate_single(query, expected_source, expected_keywords, graph)` | `(str, str, list[str], CompiledGraph) -> dict` | `graph.invoke()` で1問を評価し、retrieval_hit, faithfulness, exact_match, latency, answer を含む辞書を返却 |
 | `run_evaluation(questions, graph)` | `(list[dict], CompiledGraph) -> list[dict]` | 全質問を順次評価し結果リストを返却 |
 | `print_report(results, config)` | `(list[dict], dict) -> None` | 評価レポートを出力（Retrieval@k, Faithfulness, Exact Match, Latency, Re-rank状態） |
+| `evaluate_single_retrieval(query, expected_source, expected_keywords, container)` | `(str, str, list[str], AppContainer) -> dict` | LLMを呼ばずにRetrieval単体で1問を評価。retrieval_hit, context_relevance, mrr, retrieved_count, latency を含む辞書を返却 |
+| `run_retrieval_evaluation(questions, container)` | `(list[dict], AppContainer) -> list[dict]` | 全質問をRetrieval単体で評価し結果リストを返却 |
+| `print_retrieval_report(results, config)` | `(list[dict], dict) -> None` | Retrieval評価レポートを出力（Retrieval@k, Context Relevance, MRR, Avg Retrieved, Latency） |
 | `main()` | `() -> None` | 質問読み込み → `get_container()` → `get_graph(container=...)` → 全問評価 → レポート出力 |
+| `main_retrieval()` | `() -> None` | 質問読み込み → `get_container()` → Retrieval単体評価 → レポート出力（`--retrieval-only` フラグで実行） |
 
 ---
 
@@ -357,6 +363,7 @@ llm-rag-cli/
 | `make ingest` | ドキュメント取り込み実行 (`python -m rag.data.ingest`) |
 | `make ask Q="質問文"` | RAG に質問して回答を取得 (`python -m cli.ask`) |
 | `make evaluate` | 評価パイプライン実行 (`python -m rag.evaluation.evaluate`) |
+| `make evaluate-retrieval` | Retrieval単体評価実行 (`python -m rag.evaluation.evaluate --retrieval-only`) |
 
 ### Docker 直接実行
 
@@ -380,7 +387,7 @@ python -m rag.evaluation.evaluate           # 評価パイプライン
 | `CHUNK_SIZE` | `350` | チャンクサイズ（文字数） |
 | `CHUNK_OVERLAP` | `80` | チャンク間オーバーラップ（文字数） |
 | `SEARCH_K` | `20` | ベクトル検索の取得件数 |
-| `RERANK_TOP_K` | `5` | リランキング後の上位件数 |
+| `RERANK_TOP_K` | `3` | リランキング後の上位件数 |
 | `SCORE_THRESHOLD` | `0.5` | ベクトル検索のスコア閾値（コサイン距離、低いほど類似） |
 | `PYTHONPATH` | `/app/src` | Python モジュール検索パス（Docker 内、docker-compose.yml で設定） |
 

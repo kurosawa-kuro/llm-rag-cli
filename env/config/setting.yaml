@@ -20,7 +20,7 @@ chunking:
 
 search:
   search_k: 20
-  rerank_top_k: 5
+  rerank_top_k: 3
   score_threshold: 0.5
 
 collection_name: documents
