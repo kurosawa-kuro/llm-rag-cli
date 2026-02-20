@@ -26,20 +26,3 @@ class CrossEncoderReranker:
 
 def create_reranker(top_n: int = RERANK_TOP_K) -> CrossEncoderReranker:
     return CrossEncoderReranker(model_name=RERANKER_MODEL, top_n=top_n)
-
-
-def get_compression_retriever(base_retriever):
-    from langchain.retrievers import ContextualCompressionRetriever
-    return ContextualCompressionRetriever(
-        base_compressor=create_reranker(),
-        base_retriever=base_retriever,
-    )
-
-
-def rerank(query, docs, top_k=3):
-    if not docs:
-        return []
-    lc_docs = [Document(page_content=d["content"], metadata={"source": d.get("source", "")}) for d in docs]
-    compressor = create_reranker(top_n=top_k)
-    reranked = compressor.compress_documents(lc_docs, query)
-    return [{"content": doc.page_content, "source": doc.metadata.get("source", "")} for doc in reranked[:top_k]]

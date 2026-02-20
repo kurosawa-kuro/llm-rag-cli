@@ -1,6 +1,5 @@
 from unittest.mock import patch, MagicMock, call
 from langchain_core.documents import Document
-import numpy as np
 import pytest
 
 

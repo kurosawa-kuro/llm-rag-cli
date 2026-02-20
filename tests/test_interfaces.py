@@ -2,7 +2,6 @@ from unittest.mock import MagicMock
 from langchain_core.documents import Document
 
 from rag.core.interfaces import (
-    RetrieverProtocol,
     VectorStoreProtocol,
     RerankerProtocol,
     LLMProtocol,
@@ -10,21 +9,12 @@ from rag.core.interfaces import (
 )
 
 
-class TestRetrieverProtocol:
-    def test_duck_type_compatible(self):
-        obj = MagicMock()
-        obj.invoke.return_value = [Document(page_content="a")]
-        result = obj.invoke("query")
-        assert isinstance(result, list)
-
-
 class TestVectorStoreProtocol:
     def test_duck_type_compatible(self):
         obj = MagicMock()
-        retriever = MagicMock()
-        obj.as_retriever.return_value = retriever
-        result = obj.as_retriever(search_kwargs={"k": 10})
-        assert result is retriever
+        obj.similarity_search_with_score.return_value = [(Document(page_content="a"), 0.3)]
+        result = obj.similarity_search_with_score("query", k=10)
+        assert isinstance(result, list)
 
 
 class TestRerankerProtocol:

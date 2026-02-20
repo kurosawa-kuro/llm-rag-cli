@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-from typing import Protocol, List, Callable, Any
+from typing import Protocol, List, Callable
 from langchain_core.documents import Document
 
 
-class RetrieverProtocol(Protocol):
-    def invoke(self, query: str) -> List[Document]: ...
-
-
 class VectorStoreProtocol(Protocol):
-    def as_retriever(self, *, search_kwargs: dict) -> RetrieverProtocol: ...
     def similarity_search_with_score(self, query: str, k: int = 4) -> list: ...
 
 

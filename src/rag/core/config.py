@@ -26,8 +26,6 @@ def get_db_config():
     }
 
 
-DB_CONFIG = get_db_config()
-
 EMBED_MODEL = _settings["models"]["embed_model"]
 
 LLM_MODEL_PATH = _settings["models"]["llm_model_path"]

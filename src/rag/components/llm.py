@@ -10,7 +10,3 @@ def create_llm():
         stop=["質問:", "\n\n"],
         verbose=False,
     )
-
-
-def generate(prompt):
-    return create_llm().invoke(prompt)

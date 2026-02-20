@@ -1,5 +1,4 @@
 from unittest.mock import patch, MagicMock
-from langchain_core.documents import Document
 import sys
 import pytest
 
