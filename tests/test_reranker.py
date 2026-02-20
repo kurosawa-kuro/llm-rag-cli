@@ -5,45 +5,24 @@ import pytest
 
 
 class TestCreateReranker:
-    @patch.dict(sys.modules, {
-        "langchain_community.cross_encoders": MagicMock(),
-        "langchain": MagicMock(),
-        "langchain.retrievers": MagicMock(),
-        "langchain.retrievers.document_compressors": MagicMock(),
-    })
-    def test_loads_correct_model(self):
-        import rag.components.reranker
-        from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-        rag.components.reranker.create_reranker()
-        HuggingFaceCrossEncoder.assert_called_once_with(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    @patch("rag.components.reranker.HuggingFaceCrossEncoder")
+    def test_loads_correct_model(self, mock_hf):
+        from rag.components.reranker import CrossEncoderReranker
+        CrossEncoderReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
+        mock_hf.assert_called_once_with(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
 
-    @patch.dict(sys.modules, {
-        "langchain_community.cross_encoders": MagicMock(),
-        "langchain": MagicMock(),
-        "langchain.retrievers": MagicMock(),
-        "langchain.retrievers.document_compressors": MagicMock(),
-    })
-    def test_creates_reranker_with_model(self):
-        import rag.components.reranker
-        from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-        from langchain.retrievers.document_compressors import CrossEncoderReranker
-        rag.components.reranker.create_reranker()
-        CrossEncoderReranker.assert_called_once_with(
-            model=HuggingFaceCrossEncoder.return_value,
-            top_n=3,
-        )
+    @patch("rag.components.reranker.HuggingFaceCrossEncoder")
+    def test_creates_reranker_with_defaults(self, mock_hf):
+        from rag.components.reranker import create_reranker
+        result = create_reranker()
+        assert result.top_n == 3
+        mock_hf.assert_called_once_with(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
 
-    @patch.dict(sys.modules, {
-        "langchain_community.cross_encoders": MagicMock(),
-        "langchain": MagicMock(),
-        "langchain.retrievers": MagicMock(),
-        "langchain.retrievers.document_compressors": MagicMock(),
-    })
-    def test_returns_reranker_instance(self):
-        import rag.components.reranker
-        from langchain.retrievers.document_compressors import CrossEncoderReranker
-        result = rag.components.reranker.create_reranker()
-        assert result == CrossEncoderReranker.return_value
+    @patch("rag.components.reranker.HuggingFaceCrossEncoder")
+    def test_returns_reranker_instance(self, mock_hf):
+        from rag.components.reranker import create_reranker, CrossEncoderReranker
+        result = create_reranker()
+        assert isinstance(result, CrossEncoderReranker)
 
 
 class TestRerank:
