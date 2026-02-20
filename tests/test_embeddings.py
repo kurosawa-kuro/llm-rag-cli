@@ -3,116 +3,82 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 
-@pytest.fixture(autouse=True)
-def reset_embeddings():
-    import app.embeddings
-    app.embeddings._embeddings = None
-    yield
-    app.embeddings._embeddings = None
-
-
-class TestGetEmbeddings:
+class TestCreateEmbeddings:
     @patch.dict(sys.modules, {"langchain_huggingface": MagicMock()})
     def test_loads_correct_model(self):
         import app.embeddings
-        app.embeddings._embeddings = None
-
         from langchain_huggingface import HuggingFaceEmbeddings
-        app.embeddings.get_embeddings()
+        result = app.embeddings.create_embeddings()
         HuggingFaceEmbeddings.assert_called_once_with(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
     @patch.dict(sys.modules, {"langchain_huggingface": MagicMock()})
     def test_returns_embeddings_instance(self):
         import app.embeddings
-        app.embeddings._embeddings = None
-
         from langchain_huggingface import HuggingFaceEmbeddings
-        result = app.embeddings.get_embeddings()
+        result = app.embeddings.create_embeddings()
         assert result == HuggingFaceEmbeddings.return_value
 
 
 class TestEmbed:
-    @patch("app.embeddings.get_embeddings")
-    def test_calls_embed_documents(self, mock_get_emb):
-        mock_get_emb.return_value.embed_documents.return_value = [[0.1] * 384, [0.2] * 384]
+    @patch("app.embeddings.create_embeddings")
+    def test_calls_embed_documents(self, mock_create_emb):
+        mock_create_emb.return_value.embed_documents.return_value = [[0.1] * 384, [0.2] * 384]
         from app.embeddings import embed
 
         result = embed(["text1", "text2"])
-        mock_get_emb.return_value.embed_documents.assert_called_once_with(["text1", "text2"])
+        mock_create_emb.return_value.embed_documents.assert_called_once_with(["text1", "text2"])
 
-    @patch("app.embeddings.get_embeddings")
-    def test_returns_embed_documents_result(self, mock_get_emb):
+    @patch("app.embeddings.create_embeddings")
+    def test_returns_embed_documents_result(self, mock_create_emb):
         expected = [[0.1] * 384, [0.2] * 384]
-        mock_get_emb.return_value.embed_documents.return_value = expected
+        mock_create_emb.return_value.embed_documents.return_value = expected
         from app.embeddings import embed
 
         result = embed(["text1", "text2"])
         assert result == expected
 
-    @patch("app.embeddings.get_embeddings")
-    def test_multiple_texts(self, mock_get_emb):
+    @patch("app.embeddings.create_embeddings")
+    def test_multiple_texts(self, mock_create_emb):
         expected = [[0.1] * 384, [0.2] * 384, [0.3] * 384]
-        mock_get_emb.return_value.embed_documents.return_value = expected
+        mock_create_emb.return_value.embed_documents.return_value = expected
         from app.embeddings import embed
 
         result = embed(["a", "b", "c"])
         assert len(result) == 3
 
-    @patch("app.embeddings.get_embeddings")
-    def test_single_text(self, mock_get_emb):
+    @patch("app.embeddings.create_embeddings")
+    def test_single_text(self, mock_create_emb):
         expected = [[0.1] * 384]
-        mock_get_emb.return_value.embed_documents.return_value = expected
+        mock_create_emb.return_value.embed_documents.return_value = expected
         from app.embeddings import embed
 
         result = embed(["hello"])
         assert len(result) == 1
 
-    @patch("app.embeddings.get_embeddings")
-    def test_embed_japanese_text(self, mock_get_emb):
+    @patch("app.embeddings.create_embeddings")
+    def test_embed_japanese_text(self, mock_create_emb):
         expected = [[0.1] * 384, [0.2] * 384]
-        mock_get_emb.return_value.embed_documents.return_value = expected
+        mock_create_emb.return_value.embed_documents.return_value = expected
         from app.embeddings import embed
 
         result = embed(["パスワードを忘れた", "料金プラン"])
-        mock_get_emb.return_value.embed_documents.assert_called_once_with(["パスワードを忘れた", "料金プラン"])
+        mock_create_emb.return_value.embed_documents.assert_called_once_with(["パスワードを忘れた", "料金プラン"])
         assert len(result) == 2
 
 
-class TestSingleton:
-    @patch.dict(sys.modules, {"langchain_huggingface": MagicMock()})
-    def test_get_embeddings_returns_same_instance_on_second_call(self):
-        import app.embeddings
-        app.embeddings._embeddings = None
-
-        e1 = app.embeddings.get_embeddings()
-        e2 = app.embeddings.get_embeddings()
-        assert e1 is e2
-
-    @patch.dict(sys.modules, {"langchain_huggingface": MagicMock()})
-    def test_get_embeddings_only_loads_once(self):
-        import app.embeddings
-        app.embeddings._embeddings = None
-
-        from langchain_huggingface import HuggingFaceEmbeddings
-        app.embeddings.get_embeddings()
-        app.embeddings.get_embeddings()
-        app.embeddings.get_embeddings()
-        HuggingFaceEmbeddings.assert_called_once()
-
-
 class TestEmbedEdgeCases:
-    @patch("app.embeddings.get_embeddings")
-    def test_empty_list(self, mock_get_emb):
-        mock_get_emb.return_value.embed_documents.return_value = []
+    @patch("app.embeddings.create_embeddings")
+    def test_empty_list(self, mock_create_emb):
+        mock_create_emb.return_value.embed_documents.return_value = []
         from app.embeddings import embed
 
         result = embed([])
-        mock_get_emb.return_value.embed_documents.assert_called_once_with([])
+        mock_create_emb.return_value.embed_documents.assert_called_once_with([])
         assert result == []
 
-    @patch("app.embeddings.get_embeddings")
-    def test_embed_raises_propagates(self, mock_get_emb):
-        mock_get_emb.return_value.embed_documents.side_effect = ValueError("invalid input")
+    @patch("app.embeddings.create_embeddings")
+    def test_embed_raises_propagates(self, mock_create_emb):
+        mock_create_emb.return_value.embed_documents.side_effect = ValueError("invalid input")
         from app.embeddings import embed
 
         with pytest.raises(ValueError, match="invalid input"):

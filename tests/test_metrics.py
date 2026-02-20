@@ -6,20 +6,14 @@ class TestRetrievalAtK:
     def test_correct_source_in_results_returns_true(self):
         from app.metrics import retrieval_at_k
 
-        results = [
-            {"content": "...", "source": "faq.csv:r1"},
-            {"content": "...", "source": "faq.csv:r2"},
-        ]
-        assert retrieval_at_k(results, "faq.csv:r1") is True
+        sources = ["faq.csv:r1", "faq.csv:r2"]
+        assert retrieval_at_k(sources, "faq.csv:r1") is True
 
     def test_correct_source_not_in_results_returns_false(self):
         from app.metrics import retrieval_at_k
 
-        results = [
-            {"content": "...", "source": "faq.csv:r2"},
-            {"content": "...", "source": "faq.csv:r3"},
-        ]
-        assert retrieval_at_k(results, "faq.csv:r1") is False
+        sources = ["faq.csv:r2", "faq.csv:r3"]
+        assert retrieval_at_k(sources, "faq.csv:r1") is False
 
     def test_empty_results_returns_false(self):
         from app.metrics import retrieval_at_k
@@ -29,8 +23,8 @@ class TestRetrievalAtK:
     def test_no_false_positive_on_partial_match(self):
         from app.metrics import retrieval_at_k
 
-        results = [{"content": "...", "source": "faq.csv:r10"}]
-        assert retrieval_at_k(results, "faq.csv:r1") is False
+        sources = ["faq.csv:r10"]
+        assert retrieval_at_k(sources, "faq.csv:r1") is False
 
 
 class TestFaithfulness:
@@ -155,18 +149,11 @@ class TestRetrievalAtKEdgeCases:
         with pytest.raises(TypeError):
             retrieval_at_k(None, "faq.csv:r1")
 
-    def test_result_missing_source_key_raises_key_error(self):
-        from app.metrics import retrieval_at_k
-
-        results = [{"content": "text"}]  # "source" キーなし
-        with pytest.raises(KeyError):
-            retrieval_at_k(results, "faq.csv:r1")
-
     def test_none_expected_source(self):
         from app.metrics import retrieval_at_k
 
-        results = [{"content": "...", "source": "faq.csv:r1"}]
-        assert retrieval_at_k(results, None) is False
+        sources = ["faq.csv:r1"]
+        assert retrieval_at_k(sources, None) is False
 
 
 class TestFaithfulnessEdgeCases:
@@ -215,33 +202,26 @@ class TestRetrievalAtKExtended:
     def test_multiple_results_with_match_at_end(self):
         from app.metrics import retrieval_at_k
 
-        results = [
-            {"content": "...", "source": "a.csv:r1"},
-            {"content": "...", "source": "b.csv:r2"},
-            {"content": "...", "source": "target.pdf:p1"},
-        ]
-        assert retrieval_at_k(results, "target.pdf:p1") is True
+        sources = ["a.csv:r1", "b.csv:r2", "target.pdf:p1"]
+        assert retrieval_at_k(sources, "target.pdf:p1") is True
 
     def test_duplicate_sources_in_results(self):
         from app.metrics import retrieval_at_k
 
-        results = [
-            {"content": "...", "source": "faq.csv:r1"},
-            {"content": "...", "source": "faq.csv:r1"},
-        ]
-        assert retrieval_at_k(results, "faq.csv:r1") is True
+        sources = ["faq.csv:r1", "faq.csv:r1"]
+        assert retrieval_at_k(sources, "faq.csv:r1") is True
 
     def test_source_with_high_page_number(self):
         from app.metrics import retrieval_at_k
 
-        results = [{"content": "...", "source": "doc.pdf:p100"}]
-        assert retrieval_at_k(results, "doc.pdf:p100") is True
+        sources = ["doc.pdf:p100"]
+        assert retrieval_at_k(sources, "doc.pdf:p100") is True
 
     def test_single_result_matches(self):
         from app.metrics import retrieval_at_k
 
-        results = [{"content": "...", "source": "faq.csv:r1"}]
-        assert retrieval_at_k(results, "faq.csv:r1") is True
+        sources = ["faq.csv:r1"]
+        assert retrieval_at_k(sources, "faq.csv:r1") is True
 
 
 class TestFaithfulnessExtended:

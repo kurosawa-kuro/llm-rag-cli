@@ -9,38 +9,41 @@ class RagSettings:
 
 
 class AppContainer:
-    """
-    依存（DB/モデル/設定/関数）を集約し、遅延初期化 & キャッシュするコンテナ。
-    テストでは AppContainer を差し替えるだけで全依存を入れ替え可能。
-    """
-
-    def __init__(self, *, settings=None, vectorstore=None, reranker=None,
-                 llm=None, prompt_builder=None):
+    def __init__(self, *, settings=None, embeddings=None, vectorstore=None,
+                 reranker=None, llm=None, prompt_builder=None):
         self.settings = settings or RagSettings()
+        self._embeddings = embeddings
         self._vectorstore = vectorstore
         self._reranker = reranker
         self._llm = llm
         self._prompt_builder = prompt_builder
 
     @property
+    def embeddings(self):
+        if self._embeddings is None:
+            from app.embeddings import create_embeddings
+            self._embeddings = create_embeddings()
+        return self._embeddings
+
+    @property
     def vectorstore(self):
         if self._vectorstore is None:
-            from app.db import get_vectorstore
-            self._vectorstore = get_vectorstore()
+            from app.db import create_vectorstore
+            self._vectorstore = create_vectorstore(self.embeddings)
         return self._vectorstore
 
     @property
     def reranker(self):
         if self._reranker is None:
-            from app.reranker import get_reranker
-            self._reranker = get_reranker()
+            from app.reranker import create_reranker
+            self._reranker = create_reranker()
         return self._reranker
 
     @property
     def llm(self):
         if self._llm is None:
-            from app.llm import get_llm
-            self._llm = get_llm()
+            from app.llm import create_llm
+            self._llm = create_llm()
         return self._llm
 
     @property

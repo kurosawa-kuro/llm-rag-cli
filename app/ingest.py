@@ -3,7 +3,7 @@ from pypdf import PdfReader
 import pandas as pd
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from app.db import init_db, get_vectorstore
+from app.container import get_container
 from app.chunking import split_by_structure
 from app.config import CHUNK_SIZE, CHUNK_OVERLAP
 
@@ -32,7 +32,7 @@ def load_csvs():
 
 
 def main():
-    init_db()
+    container = get_container()
     pdf_items = load_pdfs()
     csv_items = load_csvs()
 
@@ -63,8 +63,7 @@ def main():
             documents.append(doc)
 
     if documents:
-        vectorstore = get_vectorstore()
-        vectorstore.add_documents(documents)
+        container.vectorstore.add_documents(documents)
 
 
 if __name__ == "__main__":

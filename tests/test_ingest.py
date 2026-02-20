@@ -129,75 +129,68 @@ class TestLoadCsvs:
 
 
 class TestMain:
-    @patch("app.ingest.get_vectorstore")
+    @patch("app.ingest.get_container")
     @patch("app.ingest.load_csvs", return_value=[("csv text", "file.csv:r1")])
     @patch("app.ingest.load_pdfs", return_value=[("pdf text", "doc.pdf:p1")])
-    @patch("app.ingest.init_db")
-    def test_full_pipeline(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
+    def test_full_pipeline(self, mock_pdfs, mock_csvs, mock_get_container):
         from app.ingest import main
 
         main()
 
-        mock_init.assert_called_once()
         mock_pdfs.assert_called_once()
         mock_csvs.assert_called_once()
-        mock_vs.return_value.add_documents.assert_called_once()
-        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        mock_get_container.return_value.vectorstore.add_documents.assert_called_once()
+        docs = mock_get_container.return_value.vectorstore.add_documents.call_args[0][0]
         assert len(docs) == 2
 
-    @patch("app.ingest.get_vectorstore")
+    @patch("app.ingest.get_container")
     @patch("app.ingest.load_csvs", return_value=[("csv text", "file.csv:r1")])
     @patch("app.ingest.load_pdfs", return_value=[("pdf text", "doc.pdf:p1")])
-    @patch("app.ingest.init_db")
-    def test_documents_have_metadata(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
+    def test_documents_have_metadata(self, mock_pdfs, mock_csvs, mock_get_container):
         from app.ingest import main
 
         main()
 
-        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        docs = mock_get_container.return_value.vectorstore.add_documents.call_args[0][0]
         for doc in docs:
             assert isinstance(doc, Document)
             assert "source" in doc.metadata
             assert "chunk_index" in doc.metadata
 
-    @patch("app.ingest.get_vectorstore")
+    @patch("app.ingest.get_container")
     @patch("app.ingest.load_csvs", return_value=[])
     @patch("app.ingest.load_pdfs", return_value=[("para1\n\npara2\n\npara3", "doc.pdf:p1")])
-    @patch("app.ingest.init_db")
-    def test_pdf_uses_split_by_structure(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
+    def test_pdf_uses_split_by_structure(self, mock_pdfs, mock_csvs, mock_get_container):
         from app.ingest import main
 
         main()
 
-        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        docs = mock_get_container.return_value.vectorstore.add_documents.call_args[0][0]
         assert len(docs) == 3  # 3 paragraphs
 
-    @patch("app.ingest.get_vectorstore")
+    @patch("app.ingest.get_container")
     @patch("app.ingest.load_csvs", return_value=[("csv row text", "data.csv:r1")])
     @patch("app.ingest.load_pdfs", return_value=[])
-    @patch("app.ingest.init_db")
-    def test_csv_uses_text_splitter(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
+    def test_csv_uses_text_splitter(self, mock_pdfs, mock_csvs, mock_get_container):
         from app.ingest import main
 
         main()
 
-        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        docs = mock_get_container.return_value.vectorstore.add_documents.call_args[0][0]
         # Short CSV text = 1 chunk
         assert len(docs) == 1
 
-    @patch("app.ingest.get_vectorstore")
+    @patch("app.ingest.get_container")
     @patch("app.ingest.load_csvs", return_value=[])
     @patch("app.ingest.load_pdfs", return_value=[])
-    @patch("app.ingest.init_db")
-    def test_main_with_no_documents(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
+    def test_main_with_no_documents(self, mock_pdfs, mock_csvs, mock_get_container):
         from app.ingest import main
 
         main()
 
-        mock_init.assert_called_once()
-        mock_vs.return_value.add_documents.assert_not_called()
+        mock_get_container.return_value.vectorstore.add_documents.assert_not_called()
 
-    @patch("app.ingest.get_vectorstore")
+    @patch("app.ingest.get_container")
     @patch("app.ingest.load_csvs", return_value=[
         ("row1 text", "data.csv:r1"),
         ("row2 text", "data.csv:r2"),
@@ -205,42 +198,39 @@ class TestMain:
     @patch("app.ingest.load_pdfs", return_value=[
         ("pdf text", "doc.pdf:p1"),
     ])
-    @patch("app.ingest.init_db")
-    def test_main_adds_all_documents_at_once(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
+    def test_main_adds_all_documents_at_once(self, mock_pdfs, mock_csvs, mock_get_container):
         from app.ingest import main
 
         main()
 
-        mock_vs.return_value.add_documents.assert_called_once()
-        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        mock_get_container.return_value.vectorstore.add_documents.assert_called_once()
+        docs = mock_get_container.return_value.vectorstore.add_documents.call_args[0][0]
         assert len(docs) == 3
 
-    @patch("app.ingest.get_vectorstore")
+    @patch("app.ingest.get_container")
     @patch("app.ingest.load_csvs", return_value=[("csv text", "file.csv:r1")])
     @patch("app.ingest.load_pdfs", return_value=[("pdf text", "doc.pdf:p1")])
-    @patch("app.ingest.init_db")
-    def test_main_creates_correct_documents(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
+    def test_main_creates_correct_documents(self, mock_pdfs, mock_csvs, mock_get_container):
         from app.ingest import main
 
         main()
 
-        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        docs = mock_get_container.return_value.vectorstore.add_documents.call_args[0][0]
         for doc in docs:
             assert isinstance(doc, Document)
             assert isinstance(doc.page_content, str)
             assert isinstance(doc.metadata["source"], str)
             assert isinstance(doc.metadata["chunk_index"], int)
 
-    @patch("app.ingest.get_vectorstore")
+    @patch("app.ingest.get_container")
     @patch("app.ingest.load_csvs", return_value=[])
     @patch("app.ingest.load_pdfs", return_value=[("long " * 200, "doc.pdf:p1")])
-    @patch("app.ingest.init_db")
-    def test_long_text_produces_multiple_chunks(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
+    def test_long_text_produces_multiple_chunks(self, mock_pdfs, mock_csvs, mock_get_container):
         from app.ingest import main
 
         main()
 
-        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        docs = mock_get_container.return_value.vectorstore.add_documents.call_args[0][0]
         assert len(docs) > 1
 
 
@@ -298,14 +288,13 @@ class TestLoadEdgeCases:
 
 
 class TestMainEdgeCases:
-    @patch("app.ingest.get_vectorstore")
+    @patch("app.ingest.get_container")
     @patch("app.ingest.load_csvs", return_value=[("", "empty.csv:r1")])
     @patch("app.ingest.load_pdfs", return_value=[])
-    @patch("app.ingest.init_db")
-    def test_empty_csv_text_produces_no_documents(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
+    def test_empty_csv_text_produces_no_documents(self, mock_pdfs, mock_csvs, mock_get_container):
         from app.ingest import main
 
         main()
 
         # 空テキストはTextSplitterがドキュメントを生成しないため add_documents 未呼出
-        mock_vs.return_value.add_documents.assert_not_called()
+        mock_get_container.return_value.vectorstore.add_documents.assert_not_called()

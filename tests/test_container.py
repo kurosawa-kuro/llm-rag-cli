@@ -34,6 +34,13 @@ class TestAppContainer:
         assert container.settings.search_k == 15
         assert container.settings.rerank_top_k == 2
 
+    def test_injected_embeddings(self):
+        from app.container import AppContainer
+
+        mock_emb = MagicMock()
+        container = AppContainer(embeddings=mock_emb)
+        assert container.embeddings is mock_emb
+
     def test_injected_vectorstore(self):
         from app.container import AppContainer
 
@@ -68,46 +75,60 @@ class TestAppContainer:
         container = AppContainer()
         assert callable(container.prompt_builder)
 
-    @patch("app.db.get_vectorstore")
-    def test_vectorstore_lazy_loads(self, mock_get_vs):
+    @patch("app.embeddings.create_embeddings")
+    @patch("app.db.create_vectorstore")
+    def test_vectorstore_lazy_loads(self, mock_create_vs, mock_create_emb):
         from app.container import AppContainer
 
-        mock_get_vs.return_value = MagicMock()
+        mock_create_emb.return_value = MagicMock()
+        mock_create_vs.return_value = MagicMock()
         container = AppContainer()
         vs = container.vectorstore
-        mock_get_vs.assert_called_once()
-        assert vs is mock_get_vs.return_value
+        mock_create_vs.assert_called_once_with(mock_create_emb.return_value)
+        assert vs is mock_create_vs.return_value
 
-    @patch("app.reranker.get_reranker")
-    def test_reranker_lazy_loads(self, mock_get_reranker):
+    @patch("app.reranker.create_reranker")
+    def test_reranker_lazy_loads(self, mock_create_reranker):
         from app.container import AppContainer
 
-        mock_get_reranker.return_value = MagicMock()
+        mock_create_reranker.return_value = MagicMock()
         container = AppContainer()
         r = container.reranker
-        mock_get_reranker.assert_called_once()
-        assert r is mock_get_reranker.return_value
+        mock_create_reranker.assert_called_once()
+        assert r is mock_create_reranker.return_value
 
-    @patch("app.llm.get_llm")
-    def test_llm_lazy_loads(self, mock_get_llm):
+    @patch("app.llm.create_llm")
+    def test_llm_lazy_loads(self, mock_create_llm):
         from app.container import AppContainer
 
-        mock_get_llm.return_value = MagicMock()
+        mock_create_llm.return_value = MagicMock()
         container = AppContainer()
         llm = container.llm
-        mock_get_llm.assert_called_once()
-        assert llm is mock_get_llm.return_value
+        mock_create_llm.assert_called_once()
+        assert llm is mock_create_llm.return_value
 
-    @patch("app.db.get_vectorstore")
-    def test_vectorstore_cached_after_first_access(self, mock_get_vs):
+    @patch("app.embeddings.create_embeddings")
+    def test_embeddings_lazy_loads(self, mock_create_emb):
         from app.container import AppContainer
 
-        mock_get_vs.return_value = MagicMock()
+        mock_create_emb.return_value = MagicMock()
+        container = AppContainer()
+        emb = container.embeddings
+        mock_create_emb.assert_called_once()
+        assert emb is mock_create_emb.return_value
+
+    @patch("app.embeddings.create_embeddings")
+    @patch("app.db.create_vectorstore")
+    def test_vectorstore_cached_after_first_access(self, mock_create_vs, mock_create_emb):
+        from app.container import AppContainer
+
+        mock_create_emb.return_value = MagicMock()
+        mock_create_vs.return_value = MagicMock()
         container = AppContainer()
         vs1 = container.vectorstore
         vs2 = container.vectorstore
         assert vs1 is vs2
-        mock_get_vs.assert_called_once()
+        mock_create_vs.assert_called_once()
 
 
 class TestGetContainer:

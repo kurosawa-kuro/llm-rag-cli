@@ -70,130 +70,144 @@ class TestLoadQuestions:
 
 class TestEvaluateSingle:
     def test_returns_retrieval_hit_when_source_found(self):
-        mock_search = MagicMock(return_value=[
-            {"content": "answer text", "source": "faq.csv:r1"},
-        ])
-        mock_generate = MagicMock(return_value="パスワードをリセットしてください")
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "パスワードをリセットしてください",
+            "sources": ["faq.csv:r1"],
+        }
         from app.evaluate import evaluate_single
 
         result = evaluate_single(
             "パスワードを忘れた", "faq.csv:r1", ["パスワード", "リセット"],
-            mock_search, mock_generate,
+            mock_graph,
         )
         assert result["retrieval_hit"] is True
 
     def test_returns_retrieval_miss_when_source_not_found(self):
-        mock_search = MagicMock(return_value=[
-            {"content": "unrelated", "source": "products.csv:r1"},
-        ])
-        mock_generate = MagicMock(return_value="関係ない回答")
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "関係ない回答",
+            "sources": ["products.csv:r1"],
+        }
         from app.evaluate import evaluate_single
 
         result = evaluate_single(
             "パスワードを忘れた", "faq.csv:r1", ["パスワード"],
-            mock_search, mock_generate,
+            mock_graph,
         )
         assert result["retrieval_hit"] is False
 
     def test_returns_faithfulness_score(self):
-        mock_search = MagicMock(return_value=[
-            {"content": "...", "source": "faq.csv:r1"},
-        ])
-        mock_generate = MagicMock(return_value="パスワードをリセット")
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "パスワードをリセット",
+            "sources": ["faq.csv:r1"],
+        }
         from app.evaluate import evaluate_single
 
         result = evaluate_single(
             "q", "faq.csv:r1", ["パスワード", "リセット", "メール"],
-            mock_search, mock_generate,
+            mock_graph,
         )
         assert result["faithfulness"] == pytest.approx(2.0 / 3.0)
 
     def test_returns_exact_match_true_when_all_keywords_present(self):
-        mock_search = MagicMock(return_value=[
-            {"content": "answer text", "source": "faq.csv:r1"},
-        ])
-        mock_generate = MagicMock(return_value="パスワードをリセットするにはメールアドレスを入力")
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "パスワードをリセットするにはメールアドレスを入力",
+            "sources": ["faq.csv:r1"],
+        }
         from app.evaluate import evaluate_single
 
         result = evaluate_single(
             "パスワードを忘れた", "faq.csv:r1", ["パスワード", "リセット", "メールアドレス"],
-            mock_search, mock_generate,
+            mock_graph,
         )
         assert result["exact_match"] is True
 
     def test_returns_exact_match_false_when_keyword_missing(self):
-        mock_search = MagicMock(return_value=[
-            {"content": "answer text", "source": "faq.csv:r1"},
-        ])
-        mock_generate = MagicMock(return_value="パスワードの変更")
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "パスワードの変更",
+            "sources": ["faq.csv:r1"],
+        }
         from app.evaluate import evaluate_single
 
         result = evaluate_single(
             "パスワードを忘れた", "faq.csv:r1", ["パスワード", "リセット", "メールアドレス"],
-            mock_search, mock_generate,
+            mock_graph,
         )
         assert result["exact_match"] is False
 
     def test_returns_latency_as_float(self):
-        mock_search = MagicMock(return_value=[{"content": "c", "source": "s"}])
-        mock_generate = MagicMock(return_value="answer")
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "answer",
+            "sources": ["s"],
+        }
         from app.evaluate import evaluate_single
 
-        result = evaluate_single("q", "s", ["answer"], mock_search, mock_generate)
+        result = evaluate_single("q", "s", ["answer"], mock_graph)
         assert isinstance(result["latency"], float)
         assert result["latency"] >= 0
 
-    def test_calls_search_with_query(self):
-        mock_search = MagicMock(return_value=[{"content": "c", "source": "s"}])
-        mock_generate = MagicMock(return_value="a")
+    def test_calls_graph_invoke_with_query(self):
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "a",
+            "sources": ["s"],
+        }
         from app.evaluate import evaluate_single
 
-        evaluate_single("my query", "s", ["a"], mock_search, mock_generate)
-        mock_search.assert_called_once_with("my query")
+        evaluate_single("my query", "s", ["a"], mock_graph)
+        mock_graph.invoke.assert_called_once_with({"query": "my query"})
 
-    def test_calls_generate_with_prompt_containing_context(self):
-        mock_search = MagicMock(return_value=[
-            {"content": "context text", "source": "s"},
-        ])
-        mock_generate = MagicMock(return_value="a")
+    def test_uses_answer_from_graph_result(self):
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "specific answer text",
+            "sources": ["s"],
+        }
         from app.evaluate import evaluate_single
 
-        evaluate_single("my query", "s", ["a"], mock_search, mock_generate)
-        prompt = mock_generate.call_args[0][0]
-        assert "context text" in prompt
-        assert "my query" in prompt
+        result = evaluate_single("my query", "s", ["specific"], mock_graph)
+        assert result["answer"] == "specific answer text"
 
 
 class TestRunEvaluation:
     def test_returns_list_of_results(self):
-        mock_search = MagicMock(return_value=[{"content": "c", "source": "faq.csv:r1"}])
-        mock_generate = MagicMock(return_value="パスワード リセット")
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "パスワード リセット",
+            "sources": ["faq.csv:r1"],
+        }
         questions = [
             {"query": "q1", "expected_source": "faq.csv:r1", "expected_keywords": ["パスワード"]},
             {"query": "q2", "expected_source": "faq.csv:r2", "expected_keywords": ["アカウント"]},
         ]
         from app.evaluate import run_evaluation
 
-        results = run_evaluation(questions, mock_search, mock_generate)
+        results = run_evaluation(questions, mock_graph)
         assert len(results) == 2
 
     def test_aggregates_retrieval_hits(self):
         call_count = {"n": 0}
 
-        def mock_search(query):
+        def mock_invoke(input_dict):
             call_count["n"] += 1
             if call_count["n"] == 1:
-                return [{"content": "c", "source": "faq.csv:r1"}]
-            return [{"content": "c", "source": "other"}]
+                return {"answer": "keyword1", "sources": ["faq.csv:r1"]}
+            return {"answer": "keyword1", "sources": ["other"]}
 
-        mock_generate = MagicMock(return_value="keyword1")
+        mock_graph = MagicMock()
+        mock_graph.invoke.side_effect = mock_invoke
         questions = [
             {"query": "q1", "expected_source": "faq.csv:r1", "expected_keywords": ["keyword1"]},
             {"query": "q2", "expected_source": "faq.csv:r2", "expected_keywords": ["keyword1"]},
         ]
         from app.evaluate import run_evaluation
 
-        results = run_evaluation(questions, mock_search, mock_generate)
+        results = run_evaluation(questions, mock_graph)
         hits = sum(1 for r in results if r["retrieval_hit"])
         assert hits == 1
 
@@ -264,9 +278,9 @@ class TestEvaluateMain:
     @patch("app.evaluate.print_report")
     @patch("app.evaluate.run_evaluation")
     @patch("app.evaluate.load_questions")
-    @patch("app.evaluate.generate")
-    @patch("app.evaluate._search")
-    def test_main_calls_pipeline(self, mock_search, mock_generate,
+    @patch("app.evaluate.get_container")
+    @patch("app.evaluate.get_graph")
+    def test_main_calls_pipeline(self, mock_get_graph, mock_get_container,
                                   mock_load, mock_run, mock_print):
         mock_load.return_value = [
             {"query": "q", "expected_source": "s", "expected_keywords": ["k"]}
@@ -286,10 +300,10 @@ class TestEvaluateMain:
     @patch("app.evaluate.print_report")
     @patch("app.evaluate.run_evaluation")
     @patch("app.evaluate.load_questions")
-    @patch("app.evaluate.generate")
-    @patch("app.evaluate._search")
-    def test_main_passes_search_and_generate(self, mock_search, mock_generate,
-                                              mock_load, mock_run, mock_print):
+    @patch("app.evaluate.get_container")
+    @patch("app.evaluate.get_graph")
+    def test_main_passes_graph(self, mock_get_graph, mock_get_container,
+                                mock_load, mock_run, mock_print):
         mock_load.return_value = []
         mock_run.return_value = []
         from app.evaluate import main
@@ -297,14 +311,16 @@ class TestEvaluateMain:
         main()
 
         call_args = mock_run.call_args[0]
-        assert call_args[1] == mock_search
-        assert call_args[2] == mock_generate
+        assert call_args[1] == mock_get_graph.return_value
 
 
 class TestRunEvaluationExtended:
     def test_preserves_order(self):
-        mock_search = MagicMock(return_value=[{"content": "c", "source": "s"}])
-        mock_generate = MagicMock(return_value="answer")
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "answer",
+            "sources": ["s"],
+        }
         questions = [
             {"query": "q1", "expected_source": "s", "expected_keywords": ["answer"]},
             {"query": "q2", "expected_source": "s", "expected_keywords": ["answer"]},
@@ -312,20 +328,23 @@ class TestRunEvaluationExtended:
         ]
         from app.evaluate import run_evaluation
 
-        results = run_evaluation(questions, mock_search, mock_generate)
+        results = run_evaluation(questions, mock_graph)
         assert results[0]["query"] == "q1"
         assert results[1]["query"] == "q2"
         assert results[2]["query"] == "q3"
 
     def test_each_result_has_all_fields(self):
-        mock_search = MagicMock(return_value=[{"content": "c", "source": "faq.csv:r1"}])
-        mock_generate = MagicMock(return_value="answer")
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "answer",
+            "sources": ["faq.csv:r1"],
+        }
         questions = [
             {"query": "q", "expected_source": "faq.csv:r1", "expected_keywords": ["answer"]},
         ]
         from app.evaluate import run_evaluation
 
-        results = run_evaluation(questions, mock_search, mock_generate)
+        results = run_evaluation(questions, mock_graph)
         r = results[0]
         assert "query" in r
         assert "retrieval_hit" in r
@@ -334,47 +353,55 @@ class TestRunEvaluationExtended:
         assert "latency" in r
         assert "answer" in r
 
-    def test_calls_search_for_each_question(self):
-        mock_search = MagicMock(return_value=[{"content": "c", "source": "s"}])
-        mock_generate = MagicMock(return_value="a")
+    def test_calls_graph_for_each_question(self):
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "a",
+            "sources": ["s"],
+        }
         questions = [
             {"query": "q1", "expected_source": "s", "expected_keywords": ["a"]},
             {"query": "q2", "expected_source": "s", "expected_keywords": ["a"]},
         ]
         from app.evaluate import run_evaluation
 
-        run_evaluation(questions, mock_search, mock_generate)
-        assert mock_search.call_count == 2
+        run_evaluation(questions, mock_graph)
+        assert mock_graph.invoke.call_count == 2
 
 
 class TestEvaluateSingleExtended:
     def test_returns_answer_field(self):
-        mock_search = MagicMock(return_value=[{"content": "c", "source": "s"}])
-        mock_generate = MagicMock(return_value="generated answer")
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "generated answer",
+            "sources": ["s"],
+        }
         from app.evaluate import evaluate_single
 
-        result = evaluate_single("q", "s", ["answer"], mock_search, mock_generate)
+        result = evaluate_single("q", "s", ["answer"], mock_graph)
         assert result["answer"] == "generated answer"
 
-    def test_with_multiple_search_results(self):
-        mock_search = MagicMock(return_value=[
-            {"content": "c1", "source": "s1"},
-            {"content": "c2", "source": "s2"},
-            {"content": "c3", "source": "s3"},
-        ])
-        mock_generate = MagicMock(return_value="answer with keyword1")
+    def test_with_multiple_sources(self):
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "answer with keyword1",
+            "sources": ["s1", "s2", "s3"],
+        }
         from app.evaluate import evaluate_single
 
-        result = evaluate_single("q", "s2", ["keyword1"], mock_search, mock_generate)
+        result = evaluate_single("q", "s2", ["keyword1"], mock_graph)
         assert result["retrieval_hit"] is True
         assert result["faithfulness"] == 1.0
 
     def test_query_field_in_result(self):
-        mock_search = MagicMock(return_value=[{"content": "c", "source": "s"}])
-        mock_generate = MagicMock(return_value="a")
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "a",
+            "sources": ["s"],
+        }
         from app.evaluate import evaluate_single
 
-        result = evaluate_single("my specific query", "s", ["a"], mock_search, mock_generate)
+        result = evaluate_single("my specific query", "s", ["a"], mock_graph)
         assert result["query"] == "my specific query"
 
 
@@ -460,30 +487,32 @@ class TestEvaluateEdgeCases:
             print_report([], config)
 
     def test_run_evaluation_empty_questions_returns_empty(self):
-        mock_search = MagicMock()
-        mock_generate = MagicMock()
+        mock_graph = MagicMock()
         from app.evaluate import run_evaluation
 
-        results = run_evaluation([], mock_search, mock_generate)
+        results = run_evaluation([], mock_graph)
         assert results == []
-        mock_search.assert_not_called()
+        mock_graph.invoke.assert_not_called()
 
-    def test_evaluate_single_search_returns_empty(self):
-        mock_search = MagicMock(return_value=[])
-        mock_generate = MagicMock(return_value="no context answer")
+    def test_evaluate_single_empty_sources(self):
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "answer": "no context answer",
+            "sources": [],
+        }
         from app.evaluate import evaluate_single
 
-        result = evaluate_single("q", "faq.csv:r1", ["keyword"], mock_search, mock_generate)
+        result = evaluate_single("q", "faq.csv:r1", ["keyword"], mock_graph)
         assert result["retrieval_hit"] is False
         assert result["answer"] == "no context answer"
 
-    def test_evaluate_single_generate_raises_propagates(self):
-        mock_search = MagicMock(return_value=[{"content": "c", "source": "s"}])
-        mock_generate = MagicMock(side_effect=RuntimeError("LLM error"))
+    def test_evaluate_single_graph_raises_propagates(self):
+        mock_graph = MagicMock()
+        mock_graph.invoke.side_effect = RuntimeError("LLM error")
         from app.evaluate import evaluate_single
 
         with pytest.raises(RuntimeError, match="LLM error"):
-            evaluate_single("q", "s", ["k"], mock_search, mock_generate)
+            evaluate_single("q", "s", ["k"], mock_graph)
 
 
 class TestMakefileTarget:

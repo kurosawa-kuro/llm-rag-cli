@@ -1,8 +1,8 @@
 import time
 
 
-def retrieval_at_k(results, expected_source):
-    return any(r["source"] == expected_source for r in results)
+def retrieval_at_k(sources, expected_source):
+    return any(s == expected_source for s in sources)
 
 
 def faithfulness(answer, expected_keywords):

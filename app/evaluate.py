@@ -1,18 +1,8 @@
 import json
-from app.db import get_vectorstore
-from app.reranker import get_compression_retriever
-from app.llm import generate
-from app.prompting import build_prompt
+from app.graph import get_graph
+from app.container import get_container
 from app.metrics import retrieval_at_k, faithfulness, exact_match, measure_latency
 from app.config import CHUNK_SIZE, CHUNK_OVERLAP, SEARCH_K, RERANK_TOP_K
-
-
-def _search(query):
-    vectorstore = get_vectorstore()
-    base_retriever = vectorstore.as_retriever(search_kwargs={"k": SEARCH_K})
-    retriever = get_compression_retriever(base_retriever)
-    docs = retriever.invoke(query)
-    return [{"content": doc.page_content, "source": doc.metadata.get("source", "")} for doc in docs]
 
 
 def load_questions(path="data/eval_questions.json"):
@@ -20,19 +10,18 @@ def load_questions(path="data/eval_questions.json"):
         return json.load(f)
 
 
-def evaluate_single(query, expected_source, expected_keywords, search_fn, generate_fn):
+def evaluate_single(query, expected_source, expected_keywords, graph):
     def _run():
-        results = search_fn(query)
-        contexts = [r["content"] for r in results]
-        prompt = build_prompt(query, contexts)
-        answer = generate_fn(prompt)
-        return results, answer
+        return graph.invoke({"query": query})
 
-    (results, answer), latency = measure_latency(_run)
+    result, latency = measure_latency(_run)
+
+    sources = result.get("sources", [])
+    answer = result.get("answer", "")
 
     return {
         "query": query,
-        "retrieval_hit": retrieval_at_k(results, expected_source),
+        "retrieval_hit": retrieval_at_k(sources, expected_source),
         "faithfulness": faithfulness(answer, expected_keywords),
         "exact_match": exact_match(answer, expected_keywords),
         "latency": latency,
@@ -40,15 +29,14 @@ def evaluate_single(query, expected_source, expected_keywords, search_fn, genera
     }
 
 
-def run_evaluation(questions, search_fn, generate_fn):
+def run_evaluation(questions, graph):
     results = []
     for q in questions:
         result = evaluate_single(
             query=q["query"],
             expected_source=q["expected_source"],
             expected_keywords=q["expected_keywords"],
-            search_fn=search_fn,
-            generate_fn=generate_fn,
+            graph=graph,
         )
         results.append(result)
     return results
@@ -81,7 +69,8 @@ def main():
         "SEARCH_K": SEARCH_K,
         "RERANK_TOP_K": RERANK_TOP_K,
     }
-    results = run_evaluation(questions, _search, generate)
+    graph = get_graph(container=get_container())
+    results = run_evaluation(questions, graph)
     print_report(results, config)
 
 
