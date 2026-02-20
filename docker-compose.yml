@@ -31,6 +31,7 @@ services:
       DB_USER: rag
       DB_PASSWORD: rag
       DB_NAME: rag
+      PYTHONPATH: /app/src
     tty: true
 
 volumes:

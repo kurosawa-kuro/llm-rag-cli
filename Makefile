@@ -1,5 +1,6 @@
 PYTHON ?= python3
 DOCKER_RUN = docker compose exec app
+export PYTHONPATH := src
 
 .PHONY: up down build shell test test-unit test-integration test-heavy ingest ask lint evaluate
 
@@ -28,13 +29,13 @@ test-heavy:
 	$(PYTHON) -m pytest tests/ -v -m heavy
 
 ingest:
-	$(PYTHON) -m app.ingest
+	$(PYTHON) -m rag.data.ingest
 
 ask:
-	$(PYTHON) -m app.ask "$(Q)"
+	$(PYTHON) -m cli.ask "$(Q)"
 
 lint:
-	$(PYTHON) -m py_compile app/config.py app/db.py app/embeddings.py app/llm.py app/reranker.py app/ingest.py app/ask.py app/chunking.py app/metrics.py app/evaluate.py app/graph.py app/prompting.py app/container.py app/interfaces.py app/retrieval.py
+	$(PYTHON) -m py_compile src/rag/core/config.py src/rag/infra/db.py src/rag/components/embeddings.py src/rag/components/llm.py src/rag/components/reranker.py src/rag/data/ingest.py src/cli/ask.py src/rag/data/chunking.py src/rag/evaluation/metrics.py src/rag/evaluation/evaluate.py src/rag/pipeline/graph.py src/rag/components/prompting.py src/rag/core/container.py src/rag/core/interfaces.py src/rag/pipeline/retrieval.py
 
 evaluate:
-	$(PYTHON) -m app.evaluate
+	$(PYTHON) -m rag.evaluation.evaluate

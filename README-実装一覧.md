@@ -94,94 +94,108 @@ data/csv/  ──┤
 
 ```
 llm-rag-cli/
-├── app/                        # アプリケーション本体
-│   ├── __init__.py             # パッケージ初期化
-│   ├── config.py               # 環境変数・定数管理・DB接続文字列（setting.yaml ベース）
-│   ├── interfaces.py           # Protocol 定義（VectorStore, Reranker, LLM, RetrievalStrategy）
-│   ├── container.py            # DI Container（AppContainer + RagSettings）
-│   ├── retrieval.py            # 検索戦略（TwoStageRetrieval: ベクトル検索 → リランキング）
-│   ├── db.py                   # PGVector vectorstore ファクトリ
-│   ├── embeddings.py           # テキスト埋め込みファクトリ（langchain-huggingface）
-│   ├── llm.py                  # LLM推論ファクトリ（langchain-community LlamaCpp）
-│   ├── chunking.py             # テキストチャンク分割（固定サイズ・構造ベース）
-│   ├── reranker.py             # CrossEncoderReranker ファクトリ + ContextualCompressionRetriever
-│   ├── prompting.py            # プロンプト構築（日本語テンプレート）
-│   ├── ingest.py               # ドキュメント取り込みパイプライン
-│   ├── ask.py                  # 質問応答CLI エントリポイント
-│   ├── graph.py                # LangGraph RAGパイプライン（2ノード StateGraph + ファクトリノード）
-│   ├── metrics.py              # 評価メトリクス（retrieval@k, faithfulness, exact_match, latency）
-│   └── evaluate.py             # 評価パイプライン実行（graph.invoke() ベース）
-├── tests/                      # テストスイート（280テスト: 単体268 + DB統合7 + heavy3）
-│   ├── __init__.py             # パッケージ初期化
-│   ├── conftest.py             # 共有フィクスチャ（単体テスト用mock + DB統合用fixture + heavy用real_vectorstore）
-│   ├── test_config.py          # config.py のテスト（25件）
-│   ├── test_container.py       # container.py のテスト（21件）
-│   ├── test_interfaces.py      # interfaces.py のテスト（5件）
-│   ├── test_retrieval.py       # retrieval.py のテスト（6件）
-│   ├── test_db.py              # db.py のテスト（6件）
-│   ├── test_db_integration.py  # DB統合テスト（7件、@pytest.mark.integration）
-│   ├── test_embeddings.py      # embeddings.py のテスト（9件）
+├── src/                           # アプリケーション本体
+│   ├── rag/                       # RAG コアパッケージ
+│   │   ├── core/                  # コア層（設定・インターフェース・DI）
+│   │   │   ├── __init__.py
+│   │   │   ├── config.py          # 環境変数・定数管理・DB接続文字列（setting.yaml ベース）
+│   │   │   ├── interfaces.py      # Protocol 定義（VectorStore, Reranker, LLM, RetrievalStrategy）
+│   │   │   └── container.py       # DI Container（AppContainer + RagSettings）
+│   │   ├── infra/                 # インフラ層（DB接続）
+│   │   │   ├── __init__.py
+│   │   │   └── db.py              # PGVector vectorstore ファクトリ
+│   │   ├── components/            # コンポーネント層（モデル・リランカー・プロンプト）
+│   │   │   ├── __init__.py
+│   │   │   ├── embeddings.py      # テキスト埋め込みファクトリ（langchain-huggingface）
+│   │   │   ├── llm.py             # LLM推論ファクトリ（langchain-community LlamaCpp）
+│   │   │   ├── reranker.py        # CrossEncoderReranker ファクトリ + ContextualCompressionRetriever
+│   │   │   └── prompting.py       # プロンプト構築（日本語テンプレート）
+│   │   ├── data/                  # データ層（取り込み・チャンク分割）
+│   │   │   ├── __init__.py
+│   │   │   ├── chunking.py        # テキストチャンク分割（固定サイズ・構造ベース）
+│   │   │   └── ingest.py          # ドキュメント取り込みパイプライン
+│   │   ├── pipeline/              # パイプライン層（検索・グラフ）
+│   │   │   ├── __init__.py
+│   │   │   ├── graph.py           # LangGraph RAGパイプライン（2ノード StateGraph + ファクトリノード）
+│   │   │   └── retrieval.py       # 検索戦略（TwoStageRetrieval: ベクトル検索 → リランキング）
+│   │   └── evaluation/            # 評価層（メトリクス・評価パイプライン）
+│   │       ├── __init__.py
+│   │       ├── metrics.py         # 評価メトリクス（retrieval@k, faithfulness, exact_match, latency）
+│   │       └── evaluate.py        # 評価パイプライン実行（graph.invoke() ベース）
+│   └── cli/                       # CLI エントリポイント
+│       ├── __init__.py
+│       └── ask.py                 # 質問応答CLI エントリポイント
+├── tests/                         # テストスイート（280テスト: 単体268 + DB統合7 + heavy3）
+│   ├── __init__.py                # パッケージ初期化
+│   ├── conftest.py                # 共有フィクスチャ（単体テスト用mock + DB統合用fixture + heavy用real_vectorstore）
+│   ├── test_config.py             # config.py のテスト（25件）
+│   ├── test_container.py          # container.py のテスト（21件）
+│   ├── test_interfaces.py         # interfaces.py のテスト（5件）
+│   ├── test_retrieval.py          # retrieval.py のテスト（6件）
+│   ├── test_db.py                 # db.py のテスト（6件）
+│   ├── test_db_integration.py     # DB統合テスト（7件、@pytest.mark.integration）
+│   ├── test_embeddings.py         # embeddings.py のテスト（9件）
 │   ├── test_embeddings_integration.py  # 実Embeddings統合テスト（3件、@pytest.mark.heavy）
-│   ├── test_llm.py             # llm.py のテスト（9件）
-│   ├── test_chunking.py        # chunking.py のテスト（32件）
-│   ├── test_reranker.py        # reranker.py のテスト（18件）
-│   ├── test_prompting.py       # prompting.py のテスト（6件）
-│   ├── test_ingest.py          # ingest.py のテスト（23件）
-│   ├── test_ask.py             # ask.py のテスト（8件）
-│   ├── test_graph.py           # graph.py のテスト（19件）
-│   ├── test_metrics.py         # metrics.py のテスト（38件）
-│   └── test_evaluate.py        # evaluate.py のテスト（43件）
-├── data/                       # 入力データ配置先
-│   ├── pdf/                    # PDF ファイル格納
-│   │   ├── company_overview.pdf    # 会社概要
-│   │   └── rag_technical_guide.pdf # RAG技術ガイド
-│   ├── csv/                    # CSV ファイル格納
-│   │   ├── faq.csv                 # FAQ データ
-│   │   └── products.csv            # 製品データ
-│   └── eval_questions.json     # 評価用質問データ（13問）
-├── models/                     # LLM モデル配置先
-│   └── (llama-2-7b.Q4_K_M.gguf)  # 手動配置が必要
+│   ├── test_llm.py                # llm.py のテスト（9件）
+│   ├── test_chunking.py           # chunking.py のテスト（32件）
+│   ├── test_reranker.py           # reranker.py のテスト（18件）
+│   ├── test_prompting.py          # prompting.py のテスト（6件）
+│   ├── test_ingest.py             # ingest.py のテスト（23件）
+│   ├── test_ask.py                # ask.py のテスト（8件）
+│   ├── test_graph.py              # graph.py のテスト（19件）
+│   ├── test_metrics.py            # metrics.py のテスト（38件）
+│   └── test_evaluate.py           # evaluate.py のテスト（43件）
+├── data/                          # 入力データ配置先
+│   ├── pdf/                       # PDF ファイル格納
+│   │   ├── company_overview.pdf       # 会社概要
+│   │   └── rag_technical_guide.pdf    # RAG技術ガイド
+│   ├── csv/                       # CSV ファイル格納
+│   │   ├── faq.csv                    # FAQ データ
+│   │   └── products.csv               # 製品データ
+│   └── eval_questions.json        # 評価用質問データ（13問）
+├── models/                        # LLM モデル配置先
+│   └── (llama-2-7b.Q4_K_M.gguf)     # 手動配置が必要
 ├── docs/
-│   ├── 設計書.md                # 設計ドキュメント
-│   ├── リファクタリング.md      # リファクタリング記録
+│   ├── 設計書.md                   # 設計ドキュメント
+│   ├── リファクタリング.md         # リファクタリング記録
 │   └── 実Embeddings統合テストの最小.md  # 実Embeddings統合テストガイド
-├── env/                        # 環境設定
+├── env/                           # 環境設定
 │   ├── config/
-│   │   └── setting.yaml        # アプリケーション設定ファイル（DB接続・モデル・パラメータ）
-│   └── secret/                 # シークレット配置先（空）
-├── Dockerfile                  # Python 3.11-slim ベースイメージ
-├── docker-compose.yml          # app + PostgreSQL 16 (pgvector) 構成
-├── requirements.txt            # 本番依存パッケージ
-├── requirements-dev.txt        # テスト依存パッケージ（pytest, pytest-mock）
-├── pytest.ini                  # pytest 設定
-├── Makefile                    # 開発用コマンド集
-├── doppler.yaml                # Doppler シークレット管理設定
-├── .gitignore                  # Git 除外設定
-├── CLAUDE.md                   # Claude Code 向けガイド
-├── README.md                   # プロジェクト README
-└── README-実装一覧.md          # 本ファイル（実装一覧）
+│   │   └── setting.yaml           # アプリケーション設定ファイル（DB接続・モデル・パラメータ）
+│   └── secret/                    # シークレット配置先（空）
+├── Dockerfile                     # Python 3.11-slim ベースイメージ
+├── docker-compose.yml             # app + PostgreSQL 16 (pgvector) 構成（PYTHONPATH: /app/src）
+├── requirements.txt               # 本番依存パッケージ
+├── requirements-dev.txt           # テスト依存パッケージ（pytest, pytest-mock）
+├── pytest.ini                     # pytest 設定（pythonpath = src）
+├── Makefile                       # 開発用コマンド集
+├── doppler.yaml                   # Doppler シークレット管理設定
+├── .gitignore                     # Git 除外設定
+├── CLAUDE.md                      # Claude Code 向けガイド
+├── README.md                      # プロジェクト README
+└── README-実装一覧.md             # 本ファイル（実装一覧）
 ```
 
 ### ファイル詳細
 
 | ファイル | 役割 |
 |----------|------|
-| `app/config.py` | `_load_settings()` で `env/config/setting.yaml` を読み込み。`get_db_config()` で環境変数（優先）またはYAMLからDB接続情報を取得。`get_connection_string()` で SQLAlchemy 形式の接続文字列を生成。`DB_CONFIG`, `CONNECTION_STRING`, `COLLECTION_NAME`, `EMBED_MODEL`, `LLM_MODEL_PATH`, `LLM_N_CTX`, `LLM_MAX_TOKENS`, `CHUNK_SIZE`, `CHUNK_OVERLAP`, `RERANKER_MODEL`, `SEARCH_K`, `RERANK_TOP_K` 定数を定義 |
-| `app/interfaces.py` | `VectorStoreProtocol`（`as_retriever()` メソッド）、`RetrieverProtocol`（`invoke()` メソッド）、`RerankerProtocol`（`compress_documents()` メソッド）、`LLMProtocol`（`invoke()` メソッド）、`RetrievalStrategyProtocol`（`retrieve()` メソッド）、`PromptBuilder` 型エイリアスを定義。DI Container の型安全性を保証 |
-| `app/container.py` | `RagSettings` データクラスで RAG パラメータ管理。`AppContainer` が全インフラ依存を lazy property でキャッシュ（embeddings, vectorstore, reranker, llm, prompt_builder, retrieval_strategy）。`get_container()` でシングルトン返却。テスト時はコンストラクタ引数でモック注入可能 |
-| `app/retrieval.py` | `TwoStageRetrieval` frozen dataclass。`vectorstore.as_retriever()` でベクトル検索後、`reranker.compress_documents()` でリランキングする2段階検索をカプセル化。`retrieve(query)` で検索結果を返却 |
-| `app/db.py` | `create_vectorstore(embeddings)` で `langchain_postgres.PGVector` を生成するファクトリ関数。`CONNECTION_STRING`, `COLLECTION_NAME`, `use_jsonb=True` |
-| `app/embeddings.py` | `create_embeddings()` で `HuggingFaceEmbeddings` を生成するファクトリ関数。`embed(texts)` でテキストリストを埋め込みベクトルに変換 |
-| `app/llm.py` | `create_llm()` で `LlamaCpp` を生成するファクトリ関数（n_ctx, max_tokens は config 参照）。`generate(prompt)` で `invoke()` により回答テキストを生成 |
-| `app/chunking.py` | `split_text()` で固定サイズ・単語境界チャンク分割（overlap付き）、`split_by_structure()` で段落ベースチャンク分割 |
-| `app/reranker.py` | `create_reranker()` で `HuggingFaceCrossEncoder` + `CrossEncoderReranker` を生成するファクトリ関数。`get_compression_retriever()` で `ContextualCompressionRetriever` を構築。`rerank(query, docs, top_k)` で辞書形式の文書をリランキング |
-| `app/prompting.py` | `build_prompt(query, contexts)` で日本語プロンプトテンプレートを構築 |
-| `app/ingest.py` | `load_pdfs()` でPDFのページテキスト抽出（ソースメタデータ付き）、`load_csvs()` でCSVの行を `key:value` 形式に変換、`main()` で container.vectorstore 経由でPDFは `split_by_structure`、CSVは `RecursiveCharacterTextSplitter` で分割後、`Document` 化して `add_documents()` で格納 |
-| `app/ask.py` | `main()` で `get_container()` → `get_graph(container=...)` で LangGraph パイプラインを構築し、`graph.invoke()` で回答生成、回答とソース情報を出力 |
-| `app/graph.py` | `RAGState` dataclass でパイプライン状態を定義。`create_retrieve` / `create_generate` ファクトリ関数で container 依存のノードを生成。`build_rag_graph(container=)` で 2ノード StateGraph（retrieve → generate → END）をコンパイル。`get_graph(container=)` でグラフ返却 |
-| `app/metrics.py` | `retrieval_at_k()` で検索ヒット判定、`faithfulness()` でキーワード一致率算出、`exact_match()` で全キーワード一致判定、`measure_latency()` で関数実行時間計測 |
-| `app/evaluate.py` | `load_questions()` で評価データ読み込み、`evaluate_single(query, expected_source, expected_keywords, graph)` で `graph.invoke()` 経由の個別評価、`run_evaluation(questions, graph)` で全問評価、`print_report()` でレポート出力 |
-| `tests/conftest.py` | `mock_db_connection` (conn/cur モック)、`fake_embeddings` (3×384次元ダミー)、`mock_llm_response` (LLM応答モック)、`mock_vectorstore` (PGVector モック)、`mock_documents` (LangChain Document モック)、`reset_container` (autouse: AppContainer シングルトンリセット)、`test_embeddings` (FakeEmbeddings 384次元)、`test_vectorstore` (実PGVector test_documents コレクション)、`real_vectorstore` (実HuggingFaceEmbeddings + 実PGVector、heavy用) |
+| `src/rag/core/config.py` | `_load_settings()` で `env/config/setting.yaml` を読み込み。`get_db_config()` で環境変数（優先）またはYAMLからDB接続情報を取得。`get_connection_string()` で SQLAlchemy 形式の接続文字列を生成。`DB_CONFIG`, `CONNECTION_STRING`, `COLLECTION_NAME`, `EMBED_MODEL`, `LLM_MODEL_PATH`, `LLM_N_CTX`, `LLM_MAX_TOKENS`, `CHUNK_SIZE`, `CHUNK_OVERLAP`, `RERANKER_MODEL`, `SEARCH_K`, `RERANK_TOP_K` 定数を定義 |
+| `src/rag/core/interfaces.py` | `VectorStoreProtocol`（`as_retriever()` メソッド）、`RetrieverProtocol`（`invoke()` メソッド）、`RerankerProtocol`（`compress_documents()` メソッド）、`LLMProtocol`（`invoke()` メソッド）、`RetrievalStrategyProtocol`（`retrieve()` メソッド）、`PromptBuilder` 型エイリアスを定義。DI Container の型安全性を保証 |
+| `src/rag/core/container.py` | `RagSettings` データクラスで RAG パラメータ管理。`AppContainer` が全インフラ依存を lazy property でキャッシュ（embeddings, vectorstore, reranker, llm, prompt_builder, retrieval_strategy）。`get_container()` でシングルトン返却。テスト時はコンストラクタ引数でモック注入可能 |
+| `src/rag/pipeline/retrieval.py` | `TwoStageRetrieval` frozen dataclass。`vectorstore.as_retriever()` でベクトル検索後、`reranker.compress_documents()` でリランキングする2段階検索をカプセル化。`retrieve(query)` で検索結果を返却 |
+| `src/rag/infra/db.py` | `create_vectorstore(embeddings)` で `langchain_postgres.PGVector` を生成するファクトリ関数。`CONNECTION_STRING`, `COLLECTION_NAME`, `use_jsonb=True` |
+| `src/rag/components/embeddings.py` | `create_embeddings()` で `HuggingFaceEmbeddings` を生成するファクトリ関数。`embed(texts)` でテキストリストを埋め込みベクトルに変換 |
+| `src/rag/components/llm.py` | `create_llm()` で `LlamaCpp` を生成するファクトリ関数（n_ctx, max_tokens は config 参照）。`generate(prompt)` で `invoke()` により回答テキストを生成 |
+| `src/rag/data/chunking.py` | `split_text()` で固定サイズ・単語境界チャンク分割（overlap付き）、`split_by_structure()` で段落ベースチャンク分割 |
+| `src/rag/components/reranker.py` | `create_reranker()` で `HuggingFaceCrossEncoder` + `CrossEncoderReranker` を生成するファクトリ関数。`get_compression_retriever()` で `ContextualCompressionRetriever` を構築。`rerank(query, docs, top_k)` で辞書形式の文書をリランキング |
+| `src/rag/components/prompting.py` | `build_prompt(query, contexts)` で日本語プロンプトテンプレートを構築 |
+| `src/rag/data/ingest.py` | `load_pdfs()` でPDFのページテキスト抽出（ソースメタデータ付き）、`load_csvs()` でCSVの行を `key:value` 形式に変換、`main()` で container.vectorstore 経由でPDFは `split_by_structure`、CSVは `RecursiveCharacterTextSplitter` で分割後、`Document` 化して `add_documents()` で格納 |
+| `src/cli/ask.py` | `main()` で `get_container()` → `get_graph(container=...)` で LangGraph パイプラインを構築し、`graph.invoke()` で回答生成、回答とソース情報を出力 |
+| `src/rag/pipeline/graph.py` | `RAGState` dataclass でパイプライン状態を定義。`create_retrieve` / `create_generate` ファクトリ関数で container 依存のノードを生成。`build_rag_graph(container=)` で 2ノード StateGraph（retrieve → generate → END）をコンパイル。`get_graph(container=)` でグラフ返却 |
+| `src/rag/evaluation/metrics.py` | `retrieval_at_k()` で検索ヒット判定、`faithfulness()` でキーワード一致率算出、`exact_match()` で全キーワード一致判定、`measure_latency()` で関数実行時間計測 |
+| `src/rag/evaluation/evaluate.py` | `load_questions()` で評価データ読み込み、`evaluate_single(query, expected_source, expected_keywords, graph)` で `graph.invoke()` 経由の個別評価、`run_evaluation(questions, graph)` で全問評価、`print_report()` でレポート出力 |
+| `tests/conftest.py` | `mock_db_connection` (conn/cur モック)、`fake_embeddings` (3x384次元ダミー)、`mock_llm_response` (LLM応答モック)、`mock_vectorstore` (PGVector モック)、`mock_documents` (LangChain Document モック)、`reset_container` (autouse: AppContainer シングルトンリセット)、`test_embeddings` (FakeEmbeddings 384次元)、`test_vectorstore` (実PGVector test_documents コレクション)、`real_vectorstore` (実HuggingFaceEmbeddings + 実PGVector、heavy用) |
 | `tests/test_db_integration.py` | DB統合テスト（`@pytest.mark.integration`）。PGVector接続確認、ドキュメント追加・検索・削除、メタデータ保持、kパラメータ制御を実DBで検証 |
 | `tests/test_embeddings_integration.py` | 実Embeddings統合テスト（`@pytest.mark.integration` + `@pytest.mark.heavy`）。実HuggingFaceEmbeddingsによるベクトル検索の順序妥当性を検証（cosine値は検証しない） |
 | `data/eval_questions.json` | 評価用質問13問（query, expected_source, expected_keywords） |
@@ -190,7 +204,7 @@ llm-rag-cli/
 
 ## API一覧
 
-### app/config.py
+### src/rag/core/config.py
 
 | 関数/定数 | シグネチャ | 説明 |
 |-----------|-----------|------|
@@ -210,7 +224,7 @@ llm-rag-cli/
 | `SEARCH_K` | `int` | 環境変数 `SEARCH_K` またはYAML（デフォルト 10） |
 | `RERANK_TOP_K` | `int` | 環境変数 `RERANK_TOP_K` またはYAML（デフォルト 3） |
 
-### app/interfaces.py
+### src/rag/core/interfaces.py
 
 | クラス/型 | シグネチャ | 説明 |
 |-----------|-----------|------|
@@ -221,7 +235,7 @@ llm-rag-cli/
 | `RetrievalStrategyProtocol` | `Protocol` | `retrieve(query: str) -> List[Document]` メソッドを定義 |
 | `PromptBuilder` | `Callable[[str, List[str]], str]` | プロンプト構築関数の型エイリアス |
 
-### app/container.py
+### src/rag/core/container.py
 
 | 関数/クラス | シグネチャ | 説明 |
 |-------------|-----------|------|
@@ -235,40 +249,40 @@ llm-rag-cli/
 | `AppContainer.retrieval_strategy` | `@property -> RetrievalStrategyProtocol` | `TwoStageRetrieval(vectorstore, reranker, search_k, rerank_top_k)` で遅延生成 |
 | `get_container()` | `() -> AppContainer` | シングルトンの `AppContainer` を返却 |
 
-### app/retrieval.py
+### src/rag/pipeline/retrieval.py
 
 | クラス | シグネチャ | 説明 |
 |--------|-----------|------|
 | `TwoStageRetrieval` | `@dataclass(frozen=True)` | `vectorstore`, `reranker`, `search_k`, `rerank_top_k` を保持。`retrieve(query)` で2段階検索（ベクトル検索 → リランキング）を実行し `List[Document]` を返却 |
 
-### app/db.py
+### src/rag/infra/db.py
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
 | `create_vectorstore(embeddings)` | `(Embeddings) -> PGVector` | `langchain_postgres.PGVector` を生成して返却。`CONNECTION_STRING`, `COLLECTION_NAME`, `use_jsonb=True` |
 
-### app/embeddings.py
+### src/rag/components/embeddings.py
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
 | `create_embeddings()` | `() -> HuggingFaceEmbeddings` | `HuggingFaceEmbeddings` を生成して返却（`EMBED_MODEL` 使用） |
 | `embed(texts)` | `(list[str]) -> list[list[float]]` | テキストリストを `embed_documents()` で埋め込みベクトルに変換 |
 
-### app/llm.py
+### src/rag/components/llm.py
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
 | `create_llm()` | `() -> LlamaCpp` | `LlamaCpp` を生成して返却（`LLM_MODEL_PATH`, `LLM_N_CTX`, `LLM_MAX_TOKENS`, `verbose=False`） |
 | `generate(prompt)` | `(str) -> str` | `create_llm().invoke(prompt)` で回答テキストを生成 |
 
-### app/chunking.py
+### src/rag/data/chunking.py
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
 | `split_text(text, chunk_size=500, overlap=100)` | `(str, int, int) -> list[str]` | テキストを固定サイズで分割（単語境界保持、overlap付き）。空文字は空リスト、chunk_size以下はそのまま返却 |
 | `split_by_structure(text, chunk_size=None, overlap=100)` | `(str, int\|None, int) -> list[str]` | 段落（`\n\n`）で分割。`chunk_size` 指定時は長い段落を `split_text` でさらに分割 |
 
-### app/reranker.py
+### src/rag/components/reranker.py
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
@@ -276,13 +290,13 @@ llm-rag-cli/
 | `get_compression_retriever(base_retriever)` | `(BaseRetriever) -> ContextualCompressionRetriever` | base_retriever に `CrossEncoderReranker` を組み合わせた `ContextualCompressionRetriever` を返却 |
 | `rerank(query, docs, top_k=3)` | `(str, list[dict], int) -> list[dict]` | 辞書形式の文書を `Document` に変換し、`CrossEncoderReranker` でスコアリング後、上位 top_k 件を辞書形式で返却。空リスト/None は空リスト返却 |
 
-### app/prompting.py
+### src/rag/components/prompting.py
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
 | `build_prompt(query, contexts)` | `(str, list[str]) -> str` | 日本語プロンプトテンプレートを構築。コンテキストと質問を埋め込み、回答マーカー付きで返却 |
 
-### app/ingest.py
+### src/rag/data/ingest.py
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
@@ -290,13 +304,13 @@ llm-rag-cli/
 | `load_csvs()` | `() -> list[tuple[str, str]]` | `data/csv/` 内の全 CSV から各行を `"key:value"` 形式とソース（`filename:rN`）でタプル返却 |
 | `main()` | `() -> None` | `get_container()` で container 取得 → PDF/CSV読み込み → PDFは `split_by_structure`、CSVは `RecursiveCharacterTextSplitter` で分割 → `Document` 化（source, chunk_index メタデータ付き） → `container.vectorstore.add_documents()` で格納 |
 
-### app/ask.py
+### src/cli/ask.py
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
 | `main()` | `() -> None` | `sys.argv[1]` から質問を取得、`get_container()` → `get_graph(container=...)` で LangGraph パイプラインを構築、`graph.invoke()` で回答生成、回答とソース情報を出力 |
 
-### app/graph.py
+### src/rag/pipeline/graph.py
 
 | 関数/クラス | シグネチャ | 説明 |
 |-------------|-----------|------|
@@ -306,7 +320,7 @@ llm-rag-cli/
 | `build_rag_graph(*, container=None)` | `(AppContainer\|None) -> CompiledGraph` | retrieve → generate → END の 2ノード StateGraph を構築・コンパイル。container 未指定時は `get_container()` から取得 |
 | `get_graph(*, container=None)` | `(AppContainer\|None) -> CompiledGraph` | container 指定時は毎回新規構築、未指定時はシングルトン返却 |
 
-### app/metrics.py
+### src/rag/evaluation/metrics.py
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
@@ -315,7 +329,7 @@ llm-rag-cli/
 | `exact_match(answer, expected_keywords)` | `(str, list[str]) -> bool` | 全キーワードが回答中に含まれるか判定。キーワード空リストは True |
 | `measure_latency(func)` | `(Callable) -> tuple[Any, float]` | 関数を実行し、結果と経過時間（秒）のタプルを返却 |
 
-### app/evaluate.py
+### src/rag/evaluation/evaluate.py
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
@@ -341,20 +355,20 @@ llm-rag-cli/
 | `make test-unit` | 単体テストのみ実行（DB不要、`-m "not integration and not heavy"`） |
 | `make test-integration` | DB統合テストのみ実行（PostgreSQL必要、heavy除外） |
 | `make test-heavy` | 実Embeddingsテスト実行（PostgreSQL+モデルDL必要、`-m heavy`） |
-| `make lint` | 全モジュールの構文チェック (`py_compile`、15モジュール) |
-| `make ingest` | ドキュメント取り込み実行 |
-| `make ask Q="質問文"` | RAG に質問して回答を取得 |
-| `make evaluate` | 評価パイプライン実行 (`python -m app.evaluate`) |
+| `make lint` | 全モジュールの構文チェック (`py_compile`、src/rag/ + src/cli/ 配下) |
+| `make ingest` | ドキュメント取り込み実行 (`python -m rag.data.ingest`) |
+| `make ask Q="質問文"` | RAG に質問して回答を取得 (`python -m cli.ask`) |
+| `make evaluate` | 評価パイプライン実行 (`python -m rag.evaluation.evaluate`) |
 
 ### Docker 直接実行
 
 ```bash
 docker compose up -d                        # コンテナ起動
 docker compose exec app bash                # コンテナに入る
-python -m app.ingest                        # ドキュメント取り込み
-python -m app.ask "制度の目的は？"           # 質問
+python -m rag.data.ingest                   # ドキュメント取り込み
+python -m cli.ask "制度の目的は？"           # 質問
 python -m pytest tests/ -v                  # テスト実行
-python -m app.evaluate                      # 評価パイプライン
+python -m rag.evaluation.evaluate           # 評価パイプライン
 ```
 
 ### 環境変数
@@ -369,6 +383,7 @@ python -m app.evaluate                      # 評価パイプライン
 | `CHUNK_OVERLAP` | `100` | チャンク間オーバーラップ（文字数） |
 | `SEARCH_K` | `10` | ベクトル検索の取得件数 |
 | `RERANK_TOP_K` | `3` | リランキング後の上位件数 |
+| `PYTHONPATH` | `/app/src` | Python モジュール検索パス（Docker 内、docker-compose.yml で設定） |
 
 ※ デフォルト値は `env/config/setting.yaml` で定義。環境変数が設定されている場合は環境変数が優先される。
 
