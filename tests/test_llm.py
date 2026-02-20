@@ -101,3 +101,22 @@ class TestSingleton:
         app.llm.get_llm()
         app.llm.get_llm()
         LlamaCpp.assert_called_once()
+
+
+class TestGenerateEdgeCases:
+    @patch("app.llm.get_llm")
+    def test_empty_prompt(self, mock_get_llm):
+        mock_get_llm.return_value.invoke.return_value = ""
+        from app.llm import generate
+
+        result = generate("")
+        mock_get_llm.return_value.invoke.assert_called_once_with("")
+        assert result == ""
+
+    @patch("app.llm.get_llm")
+    def test_llm_invoke_raises_propagates(self, mock_get_llm):
+        mock_get_llm.return_value.invoke.side_effect = RuntimeError("model failed")
+        from app.llm import generate
+
+        with pytest.raises(RuntimeError, match="model failed"):
+            generate("test")

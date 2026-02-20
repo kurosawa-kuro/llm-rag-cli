@@ -242,3 +242,70 @@ class TestMain:
 
         docs = mock_vs.return_value.add_documents.call_args[0][0]
         assert len(docs) > 1
+
+
+class TestLoadEdgeCases:
+    @patch("app.ingest.os.listdir", return_value=[])
+    def test_load_pdfs_empty_directory(self, mock_listdir):
+        from app.ingest import load_pdfs
+
+        result = load_pdfs()
+        assert result == []
+
+    @patch("app.ingest.os.listdir", return_value=[])
+    def test_load_csvs_empty_directory(self, mock_listdir):
+        from app.ingest import load_csvs
+
+        result = load_csvs()
+        assert result == []
+
+    @patch("app.ingest.PdfReader")
+    @patch("app.ingest.os.listdir", return_value=["doc.pdf"])
+    def test_load_pdfs_empty_page_text(self, mock_listdir, mock_reader):
+        page = MagicMock()
+        page.extract_text.return_value = ""
+        mock_reader.return_value.pages = [page]
+        from app.ingest import load_pdfs
+
+        result = load_pdfs()
+        # 空テキストでもタプルとして返される
+        assert result == [("", "doc.pdf:p1")]
+
+    @patch("app.ingest.PdfReader")
+    @patch("app.ingest.os.listdir", return_value=["doc.pdf"])
+    def test_load_pdfs_none_text_from_page(self, mock_listdir, mock_reader):
+        page = MagicMock()
+        page.extract_text.return_value = None
+        mock_reader.return_value.pages = [page]
+        from app.ingest import load_pdfs
+
+        result = load_pdfs()
+        assert result == [(None, "doc.pdf:p1")]
+
+    @patch("app.ingest.os.listdir", side_effect=FileNotFoundError)
+    def test_load_pdfs_missing_directory_raises_error(self, mock_listdir):
+        from app.ingest import load_pdfs
+
+        with pytest.raises(FileNotFoundError):
+            load_pdfs()
+
+    @patch("app.ingest.os.listdir", side_effect=FileNotFoundError)
+    def test_load_csvs_missing_directory_raises_error(self, mock_listdir):
+        from app.ingest import load_csvs
+
+        with pytest.raises(FileNotFoundError):
+            load_csvs()
+
+
+class TestMainEdgeCases:
+    @patch("app.ingest.get_vectorstore")
+    @patch("app.ingest.load_csvs", return_value=[("", "empty.csv:r1")])
+    @patch("app.ingest.load_pdfs", return_value=[])
+    @patch("app.ingest.init_db")
+    def test_empty_csv_text_produces_no_documents(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
+        from app.ingest import main
+
+        main()
+
+        # 空テキストはTextSplitterがドキュメントを生成しないため add_documents 未呼出
+        mock_vs.return_value.add_documents.assert_not_called()

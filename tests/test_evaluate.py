@@ -437,6 +437,55 @@ class TestPrintReportExtended:
         assert "10" in printed
 
 
+class TestEvaluateEdgeCases:
+    def test_load_questions_nonexistent_file_raises_error(self):
+        from app.evaluate import load_questions
+
+        with pytest.raises(FileNotFoundError):
+            load_questions("/nonexistent/path.json")
+
+    def test_load_questions_invalid_json_raises_error(self):
+        from app.evaluate import load_questions
+
+        m = mock_open(read_data="not valid json{{{")
+        with patch("builtins.open", m):
+            with pytest.raises(json.JSONDecodeError):
+                load_questions("dummy.json")
+
+    def test_print_report_empty_results_raises_zero_division(self):
+        from app.evaluate import print_report
+
+        config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
+        with pytest.raises(ZeroDivisionError):
+            print_report([], config)
+
+    def test_run_evaluation_empty_questions_returns_empty(self):
+        mock_search = MagicMock()
+        mock_generate = MagicMock()
+        from app.evaluate import run_evaluation
+
+        results = run_evaluation([], mock_search, mock_generate)
+        assert results == []
+        mock_search.assert_not_called()
+
+    def test_evaluate_single_search_returns_empty(self):
+        mock_search = MagicMock(return_value=[])
+        mock_generate = MagicMock(return_value="no context answer")
+        from app.evaluate import evaluate_single
+
+        result = evaluate_single("q", "faq.csv:r1", ["keyword"], mock_search, mock_generate)
+        assert result["retrieval_hit"] is False
+        assert result["answer"] == "no context answer"
+
+    def test_evaluate_single_generate_raises_propagates(self):
+        mock_search = MagicMock(return_value=[{"content": "c", "source": "s"}])
+        mock_generate = MagicMock(side_effect=RuntimeError("LLM error"))
+        from app.evaluate import evaluate_single
+
+        with pytest.raises(RuntimeError, match="LLM error"):
+            evaluate_single("q", "s", ["k"], mock_search, mock_generate)
+
+
 class TestMakefileTarget:
     def test_makefile_has_evaluate_target(self):
         path = os.path.join(os.path.dirname(__file__), "..", "Makefile")

@@ -1,4 +1,5 @@
 from unittest.mock import patch
+import pytest
 
 
 class TestGetDbConfig:
@@ -139,3 +140,36 @@ class TestRerankerConfigEnvOverride:
             assert config_mod.RERANK_TOP_K == 5
         with patch.dict("os.environ", {}, clear=True):
             importlib.reload(config_mod)
+
+
+class TestConfigValidation:
+    def test_non_numeric_chunk_size_raises_value_error(self):
+        import importlib
+        import app.config as config_mod
+        with patch.dict("os.environ", {"CHUNK_SIZE": "abc"}):
+            with pytest.raises(ValueError):
+                importlib.reload(config_mod)
+        with patch.dict("os.environ", {}, clear=True):
+            importlib.reload(config_mod)
+
+    def test_non_numeric_search_k_raises_value_error(self):
+        import importlib
+        import app.config as config_mod
+        with patch.dict("os.environ", {"SEARCH_K": "not_a_number"}):
+            with pytest.raises(ValueError):
+                importlib.reload(config_mod)
+        with patch.dict("os.environ", {}, clear=True):
+            importlib.reload(config_mod)
+
+    def test_empty_db_host_uses_empty_string(self):
+        with patch.dict("os.environ", {"DB_HOST": ""}):
+            from app.config import get_db_config
+            config = get_db_config()
+            assert config["host"] == ""
+
+    def test_connection_string_with_special_chars_in_password(self):
+        env = {"DB_PASSWORD": "p@ss:word/123"}
+        with patch.dict("os.environ", env):
+            from app.config import get_connection_string
+            cs = get_connection_string()
+            assert "p@ss:word/123" in cs

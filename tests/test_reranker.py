@@ -185,6 +185,43 @@ class TestRerank:
         assert lc_docs[0].page_content == "doc A"
 
 
+class TestRerankEdgeCases:
+    @patch("app.reranker.get_reranker")
+    def test_none_docs_returns_empty(self, mock_get_reranker):
+        from app.reranker import rerank
+
+        result = rerank("query", None, top_k=3)
+        assert result == []
+
+    @patch("app.reranker.get_reranker")
+    def test_docs_missing_source_key_uses_empty_default(self, mock_get_reranker):
+        reranked = [Document(page_content="text", metadata={})]
+        mock_get_reranker.return_value.compress_documents.return_value = reranked
+        from app.reranker import rerank
+
+        result = rerank("query", [{"content": "text"}], top_k=1)
+        assert result[0]["source"] == ""
+
+    @patch("app.reranker.get_reranker")
+    def test_top_k_zero_returns_empty(self, mock_get_reranker):
+        reranked = [Document(page_content="text", metadata={"source": "s"})]
+        mock_get_reranker.return_value.compress_documents.return_value = reranked
+        from app.reranker import rerank
+
+        result = rerank("query", [{"content": "text", "source": "s"}], top_k=0)
+        assert result == []
+
+    @patch("app.reranker.get_reranker")
+    def test_empty_query_still_calls_compressor(self, mock_get_reranker):
+        reranked = [Document(page_content="text", metadata={"source": "s"})]
+        mock_get_reranker.return_value.compress_documents.return_value = reranked
+        from app.reranker import rerank
+
+        result = rerank("", [{"content": "text", "source": "s"}], top_k=1)
+        mock_get_reranker.return_value.compress_documents.assert_called_once()
+        assert len(result) == 1
+
+
 class TestGetCompressionRetriever:
     @patch.dict(sys.modules, {
         "langchain": MagicMock(),

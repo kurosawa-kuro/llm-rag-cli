@@ -148,6 +148,69 @@ class TestMeasureLatency:
         assert elapsed >= 0
 
 
+class TestRetrievalAtKEdgeCases:
+    def test_none_results_raises_type_error(self):
+        from app.metrics import retrieval_at_k
+
+        with pytest.raises(TypeError):
+            retrieval_at_k(None, "faq.csv:r1")
+
+    def test_result_missing_source_key_raises_key_error(self):
+        from app.metrics import retrieval_at_k
+
+        results = [{"content": "text"}]  # "source" キーなし
+        with pytest.raises(KeyError):
+            retrieval_at_k(results, "faq.csv:r1")
+
+    def test_none_expected_source(self):
+        from app.metrics import retrieval_at_k
+
+        results = [{"content": "...", "source": "faq.csv:r1"}]
+        assert retrieval_at_k(results, None) is False
+
+
+class TestFaithfulnessEdgeCases:
+    def test_none_answer_raises_type_error(self):
+        from app.metrics import faithfulness
+
+        with pytest.raises(TypeError):
+            faithfulness(None, ["keyword"])
+
+    def test_none_keywords_returns_1(self):
+        from app.metrics import faithfulness
+
+        # None is falsy, so `not None` is True
+        assert faithfulness("answer", None) == 1.0
+
+
+class TestExactMatchEdgeCases:
+    def test_none_answer_raises_type_error(self):
+        from app.metrics import exact_match
+
+        with pytest.raises(TypeError):
+            exact_match(None, ["keyword"])
+
+    def test_none_keywords_returns_true(self):
+        from app.metrics import exact_match
+
+        assert exact_match("answer", None) is True
+
+
+class TestMeasureLatencyEdgeCases:
+    def test_none_func_raises_type_error(self):
+        from app.metrics import measure_latency
+
+        with pytest.raises(TypeError):
+            measure_latency(None)
+
+    def test_func_returning_none(self):
+        from app.metrics import measure_latency
+
+        result, elapsed = measure_latency(lambda: None)
+        assert result is None
+        assert elapsed >= 0
+
+
 class TestRetrievalAtKExtended:
     def test_multiple_results_with_match_at_end(self):
         from app.metrics import retrieval_at_k

@@ -206,3 +206,76 @@ class TestGetGraph:
         g1 = get_graph()
         g2 = get_graph()
         assert g1 is g2
+
+
+class TestRetrieveNodeEdgeCases:
+    @patch("app.graph.get_vectorstore")
+    def test_empty_query(self, mock_vs):
+        mock_retriever = MagicMock()
+        mock_vs.return_value.as_retriever.return_value = mock_retriever
+        mock_retriever.invoke.return_value = []
+        from app.graph import retrieve
+
+        result = retrieve({"query": ""})
+
+        assert result["documents"] == []
+        mock_retriever.invoke.assert_called_once_with("")
+
+
+class TestRerankNodeEdgeCases:
+    @patch("app.graph.get_reranker")
+    def test_empty_documents_list(self, mock_reranker):
+        mock_reranker.return_value.compress_documents.return_value = []
+        from app.graph import rerank_node
+
+        state = {"query": "test", "documents": []}
+        result = rerank_node(state)
+
+        assert result["reranked_documents"] == []
+
+    @patch("app.graph.get_reranker")
+    def test_documents_without_source_metadata(self, mock_reranker):
+        docs = [Document(page_content="text", metadata={})]
+        mock_reranker.return_value.compress_documents.return_value = docs
+        from app.graph import rerank_node
+
+        state = {"query": "test", "documents": docs}
+        result = rerank_node(state)
+
+        assert len(result["reranked_documents"]) == 1
+
+
+class TestGenerateNodeEdgeCases:
+    @patch("app.graph.get_llm")
+    def test_empty_reranked_documents(self, mock_llm):
+        mock_llm.return_value.invoke.return_value = "回答なし"
+        from app.graph import generate_node
+
+        state = {"query": "テスト", "reranked_documents": []}
+        result = generate_node(state)
+
+        assert result["answer"] == "回答なし"
+        assert result["contexts"] == []
+        assert result["sources"] == []
+
+    @patch("app.graph.get_llm")
+    def test_document_without_source_returns_empty_string(self, mock_llm):
+        mock_llm.return_value.invoke.return_value = "回答"
+        from app.graph import generate_node
+
+        docs = [Document(page_content="context", metadata={})]
+        state = {"query": "テスト", "reranked_documents": docs}
+        result = generate_node(state)
+
+        assert result["sources"] == [""]
+
+    @patch("app.graph.get_llm")
+    def test_llm_raises_propagates(self, mock_llm):
+        mock_llm.return_value.invoke.side_effect = RuntimeError("model error")
+        from app.graph import generate_node
+
+        docs = [Document(page_content="context", metadata={"source": "s"})]
+        state = {"query": "テスト", "reranked_documents": docs}
+
+        with pytest.raises(RuntimeError, match="model error"):
+            generate_node(state)

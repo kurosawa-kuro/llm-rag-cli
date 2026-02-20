@@ -98,3 +98,22 @@ class TestSingleton:
         app.embeddings.get_embeddings()
         app.embeddings.get_embeddings()
         HuggingFaceEmbeddings.assert_called_once()
+
+
+class TestEmbedEdgeCases:
+    @patch("app.embeddings.get_embeddings")
+    def test_empty_list(self, mock_get_emb):
+        mock_get_emb.return_value.embed_documents.return_value = []
+        from app.embeddings import embed
+
+        result = embed([])
+        mock_get_emb.return_value.embed_documents.assert_called_once_with([])
+        assert result == []
+
+    @patch("app.embeddings.get_embeddings")
+    def test_embed_raises_propagates(self, mock_get_emb):
+        mock_get_emb.return_value.embed_documents.side_effect = ValueError("invalid input")
+        from app.embeddings import embed
+
+        with pytest.raises(ValueError, match="invalid input"):
+            embed(["text"])

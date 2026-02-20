@@ -1,5 +1,6 @@
 from unittest.mock import patch, MagicMock
 from langchain_core.documents import Document
+import sys
 import pytest
 
 
@@ -180,3 +181,64 @@ class TestMain:
         printed = " ".join(str(c) for c in mock_print.call_args_list)
         assert "Answer" in printed
         assert "Sources" in printed
+
+
+class TestSearchEdgeCases:
+    @patch("app.ask.get_compression_retriever")
+    @patch("app.ask.get_vectorstore")
+    def test_search_returns_empty_source_when_metadata_missing(self, mock_vs, mock_ccr):
+        mock_ccr.return_value.invoke.return_value = [
+            Document(page_content="text", metadata={}),
+        ]
+        from app.ask import search
+
+        results = search("query")
+        assert results[0]["source"] == ""
+
+    @patch("app.ask.get_compression_retriever")
+    @patch("app.ask.get_vectorstore")
+    def test_search_with_empty_query(self, mock_vs, mock_ccr):
+        mock_ccr.return_value.invoke.return_value = []
+        from app.ask import search
+
+        results = search("")
+        assert results == []
+        mock_ccr.return_value.invoke.assert_called_once_with("")
+
+
+class TestMainEdgeCases:
+    @patch("app.ask.sys")
+    def test_main_missing_argv_raises_index_error(self, mock_sys):
+        mock_sys.argv = ["ask.py"]  # queryなし
+        from app.ask import main
+
+        with pytest.raises(IndexError):
+            main()
+
+    @patch("builtins.print")
+    @patch("app.graph.get_graph")
+    @patch("app.ask.sys")
+    def test_main_empty_sources(self, mock_sys, mock_get_graph, mock_print):
+        mock_sys.argv = ["ask.py", "テスト"]
+        mock_get_graph.return_value.invoke.return_value = {
+            "answer": "回答",
+            "sources": [],
+        }
+        from app.ask import main
+
+        main()
+        printed = " ".join(str(c) for c in mock_print.call_args_list)
+        assert "回答" in printed
+
+    @patch("builtins.print")
+    @patch("app.graph.get_graph")
+    @patch("app.ask.sys")
+    def test_main_missing_sources_key(self, mock_sys, mock_get_graph, mock_print):
+        mock_sys.argv = ["ask.py", "テスト"]
+        mock_get_graph.return_value.invoke.return_value = {
+            "answer": "回答",
+            # "sources" キーなし → .get() で [] がデフォルト
+        }
+        from app.ask import main
+
+        main()  # クラッシュしない

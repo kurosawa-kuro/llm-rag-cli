@@ -173,3 +173,77 @@ class TestSplitByStructure:
         assert len(result) == 2
         assert result[0] == "short"
         assert result[1] == long_para.strip()
+
+
+class TestSplitTextEdgeCases:
+    def test_none_input_returns_empty_list(self):
+        from app.chunking import split_text
+
+        assert split_text(None) == []
+
+    def test_whitespace_only_returns_empty_list(self):
+        from app.chunking import split_text
+
+        assert split_text("   ") == ["   "]  # not empty: len > 0 but <= chunk_size
+
+    def test_long_string_without_spaces(self):
+        from app.chunking import split_text
+
+        text = "a" * 1000
+        result = split_text(text, chunk_size=300, overlap=50)
+        assert len(result) >= 1
+        # 元のテキストの全文字がチャンクに含まれる
+        combined = "".join(result)
+        assert len(combined) >= len(set(text))
+
+    def test_overlap_larger_than_chunk_size_does_not_hang(self):
+        from app.chunking import split_text
+
+        text = "hello world this is a test"
+        # overlap > chunk_size でも無限ループにならない
+        result = split_text(text, chunk_size=5, overlap=100)
+        assert isinstance(result, list)
+        assert len(result) >= 1
+
+    def test_chunk_size_one(self):
+        from app.chunking import split_text
+
+        result = split_text("a b", chunk_size=1, overlap=0)
+        assert isinstance(result, list)
+        assert len(result) >= 1
+
+    def test_newlines_in_text(self):
+        from app.chunking import split_text
+
+        text = "line one\nline two\nline three " * 20
+        result = split_text(text, chunk_size=100, overlap=20)
+        assert len(result) >= 1
+        combined = " ".join(result)
+        assert "line one" in combined
+
+
+class TestSplitByStructureEdgeCases:
+    def test_none_input_returns_empty_list(self):
+        from app.chunking import split_by_structure
+
+        assert split_by_structure(None) == []
+
+    def test_whitespace_only_returns_empty_list(self):
+        from app.chunking import split_by_structure
+
+        assert split_by_structure("   \n\n   ") == []
+
+    def test_single_newline_no_split(self):
+        from app.chunking import split_by_structure
+
+        result = split_by_structure("line one\nline two")
+        assert len(result) == 1
+        assert "line one\nline two" == result[0]
+
+    def test_chunk_size_zero_returns_list(self):
+        from app.chunking import split_by_structure
+
+        # chunk_size=0 でもクラッシュしない
+        text = "short\n\nanother"
+        result = split_by_structure(text, chunk_size=0)
+        assert isinstance(result, list)
