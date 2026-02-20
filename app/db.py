@@ -14,7 +14,9 @@ def init_db():
             CREATE TABLE IF NOT EXISTS documents (
                 id SERIAL PRIMARY KEY,
                 content TEXT,
-                embedding VECTOR(384)
+                embedding VECTOR(384),
+                source TEXT,
+                chunk_index INT
             );
             """)
         conn.commit()

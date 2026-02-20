@@ -43,6 +43,28 @@ class TestInitDb:
         assert any("VECTOR(384)" in c for c in calls)
 
     @patch("app.db.get_conn")
+    def test_creates_source_column(self, mock_get_conn, mock_db_connection):
+        conn, cur = mock_db_connection
+        mock_get_conn.return_value = conn
+        from app.db import init_db
+
+        init_db()
+
+        calls = [str(c) for c in cur.execute.call_args_list]
+        assert any("source TEXT" in c for c in calls)
+
+    @patch("app.db.get_conn")
+    def test_creates_chunk_index_column(self, mock_get_conn, mock_db_connection):
+        conn, cur = mock_db_connection
+        mock_get_conn.return_value = conn
+        from app.db import init_db
+
+        init_db()
+
+        calls = [str(c) for c in cur.execute.call_args_list]
+        assert any("chunk_index INT" in c for c in calls)
+
+    @patch("app.db.get_conn")
     def test_commits(self, mock_get_conn, mock_db_connection):
         conn, cur = mock_db_connection
         mock_get_conn.return_value = conn

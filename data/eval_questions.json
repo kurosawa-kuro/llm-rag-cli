@@ -1,0 +1,67 @@
+[
+  {
+    "query": "パスワードを忘れた場合はどうすればいいですか？",
+    "expected_source": "faq.csv:r1",
+    "expected_keywords": ["パスワード", "リセット", "メールアドレス"]
+  },
+  {
+    "query": "アカウントを削除する方法を教えてください",
+    "expected_source": "faq.csv:r2",
+    "expected_keywords": ["アカウント削除", "30日間"]
+  },
+  {
+    "query": "料金プランの変更はどうすればいいですか？",
+    "expected_source": "faq.csv:r3",
+    "expected_keywords": ["プラン管理", "アップグレード", "ダウングレード"]
+  },
+  {
+    "query": "返金ポリシーについて教えてください",
+    "expected_source": "faq.csv:r4",
+    "expected_keywords": ["14日以内", "全額返金"]
+  },
+  {
+    "query": "APIキーはどこで取得できますか？",
+    "expected_source": "faq.csv:r5",
+    "expected_keywords": ["ダッシュボード", "開発者設定", "APIキー"]
+  },
+  {
+    "query": "APIのレート制限はどうなっていますか？",
+    "expected_source": "faq.csv:r6",
+    "expected_keywords": ["60リクエスト", "1000リクエスト", "無制限"]
+  },
+  {
+    "query": "プロプランの内容と価格を教えてください",
+    "expected_source": "products.csv:r2",
+    "expected_keywords": ["50GB", "2980", "分析ダッシュボード"]
+  },
+  {
+    "query": "セキュリティパックには何が含まれますか？",
+    "expected_source": "products.csv:r6",
+    "expected_keywords": ["WAF", "DDoS", "脆弱性スキャン"]
+  },
+  {
+    "query": "会社の設立年と従業員数を教えてください",
+    "expected_source": "company_overview.pdf:p1",
+    "expected_keywords": ["2020", "150"]
+  },
+  {
+    "query": "会社の技術スタックは何ですか？",
+    "expected_source": "company_overview.pdf:p1",
+    "expected_keywords": ["Python", "PostgreSQL", "Docker"]
+  },
+  {
+    "query": "MLエンジニアの年収はいくらですか？",
+    "expected_source": "company_overview.pdf:p1",
+    "expected_keywords": ["800万", "1500万"]
+  },
+  {
+    "query": "RAGの主要なコンポーネントは何ですか？",
+    "expected_source": "rag_technical_guide.pdf:p1",
+    "expected_keywords": ["チャンク分割", "ベクトル", "LLM"]
+  },
+  {
+    "query": "チャンク分割の戦略にはどのようなものがありますか？",
+    "expected_source": "rag_technical_guide.pdf:p1",
+    "expected_keywords": ["固定サイズ", "構造ベース", "セマンティック"]
+  }
+]

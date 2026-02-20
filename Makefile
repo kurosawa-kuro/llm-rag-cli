@@ -22,4 +22,4 @@ ask:
 	docker compose exec app python app/ask.py "$(Q)"
 
 lint:
-	docker compose exec app python -m py_compile app/config.py app/db.py app/embeddings.py app/llm.py app/ingest.py app/ask.py
+	docker compose exec app python -m py_compile app/config.py app/db.py app/embeddings.py app/llm.py app/reranker.py app/ingest.py app/ask.py app/chunking.py
