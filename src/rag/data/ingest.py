@@ -5,6 +5,7 @@ from langchain_core.documents import Document
 from rag.core.container import get_container
 from rag.data.chunking import split_by_structure
 from rag.core.config import CHUNK_SIZE, CHUNK_OVERLAP
+from rag.infra.db import create_vectorstore
 
 DATA_DIR = "data"
 
@@ -37,9 +38,9 @@ def load_csvs():
 def main():
     container = get_container()
 
-    # 既存ドキュメントをクリア（コレクション単位で削除→再作成）
+    # 既存ドキュメントをクリア（コレクション削除→vectorstore再生成）
     container.vectorstore.delete_collection()
-    container.vectorstore.create_tables_if_not_exists()
+    container._vectorstore = create_vectorstore(container.embeddings)
 
     pdf_items = load_pdfs()
     csv_items = load_csvs()
