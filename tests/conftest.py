@@ -51,6 +51,21 @@ def mock_documents():
 # --- 統合テスト用 fixture ---
 
 
+def _check_db_connection():
+    """PostgreSQL に接続できるか確認し、不可なら pytest.skip する。"""
+    from sqlalchemy import create_engine, text
+    from app.config import CONNECTION_STRING
+
+    engine = create_engine(CONNECTION_STRING)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception:
+        pytest.skip("PostgreSQL is not available")
+    finally:
+        engine.dispose()
+
+
 @pytest.fixture
 def test_embeddings():
     """統合テスト用のダミー埋め込み（FakeEmbeddings 384次元）"""
@@ -61,6 +76,8 @@ def test_embeddings():
 @pytest.fixture
 def test_vectorstore(test_embeddings):
     """統合テスト用の実PGVector（test_documents コレクション）。テスト後にコレクション削除。"""
+    _check_db_connection()
+
     from langchain_postgres import PGVector
     from app.config import CONNECTION_STRING
 
@@ -81,6 +98,8 @@ def test_vectorstore(test_embeddings):
 @pytest.fixture
 def real_vectorstore():
     """実HuggingFaceEmbeddings + 実PGVectorを使うheavy統合テスト用。テスト後にコレクション削除。"""
+    _check_db_connection()
+
     import uuid
     from langchain_postgres import PGVector
     from app.embeddings import create_embeddings
