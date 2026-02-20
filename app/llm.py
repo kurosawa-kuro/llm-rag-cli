@@ -1,4 +1,4 @@
-from app.config import LLM_MODEL_PATH
+from app.config import LLM_MODEL_PATH, LLM_N_CTX, LLM_MAX_TOKENS
 
 _llm = None
 
@@ -9,8 +9,8 @@ def get_llm():
         from langchain_community.llms import LlamaCpp
         _llm = LlamaCpp(
             model_path=LLM_MODEL_PATH,
-            n_ctx=2048,
-            max_tokens=300,
+            n_ctx=LLM_N_CTX,
+            max_tokens=LLM_MAX_TOKENS,
             verbose=False,
         )
     return _llm

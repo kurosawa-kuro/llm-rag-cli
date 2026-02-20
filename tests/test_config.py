@@ -2,6 +2,19 @@ from unittest.mock import patch
 import pytest
 
 
+class TestLoadSettings:
+    def test_loads_yaml_file(self):
+        from app.config import _settings
+
+        assert isinstance(_settings, dict)
+        assert "db" in _settings
+        assert "models" in _settings
+        assert "llm" in _settings
+        assert "chunking" in _settings
+        assert "search" in _settings
+        assert "collection_name" in _settings
+
+
 class TestGetDbConfig:
     def test_default_values(self):
         with patch.dict("os.environ", {}, clear=True):

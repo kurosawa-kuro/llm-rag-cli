@@ -13,3 +13,4 @@ langchain-huggingface>=0.1.0
 langchain-postgres>=0.0.12
 psycopg[binary]>=3.1.0
 langgraph>=0.2.0
+pyyaml

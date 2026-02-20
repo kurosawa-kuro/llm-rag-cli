@@ -1,0 +1,25 @@
+db:
+  host: localhost
+  user: rag
+  password: rag
+  name: rag
+  port: 5432
+
+models:
+  embed_model: sentence-transformers/all-MiniLM-L6-v2
+  llm_model_path: ./models/llama-2-7b.Q4_K_M.gguf
+  reranker_model: cross-encoder/ms-marco-MiniLM-L-6-v2
+
+llm:
+  n_ctx: 2048
+  max_tokens: 300
+
+chunking:
+  chunk_size: 500
+  chunk_overlap: 100
+
+search:
+  search_k: 10
+  rerank_top_k: 3
+
+collection_name: documents
