@@ -47,3 +47,238 @@ class TestEvalQuestions:
         for i, q in enumerate(data):
             assert isinstance(q["expected_keywords"], list)
             assert len(q["expected_keywords"]) >= 1
+
+
+class TestLoadQuestions:
+    def test_loads_json_from_file(self):
+        questions = [{"query": "q", "expected_source": "s", "expected_keywords": ["k"]}]
+        m = mock_open(read_data=json.dumps(questions))
+        with patch("builtins.open", m):
+            from app.evaluate import load_questions
+
+            result = load_questions("dummy.json")
+        assert result == questions
+
+    def test_returns_list(self):
+        m = mock_open(read_data="[]")
+        with patch("builtins.open", m):
+            from app.evaluate import load_questions
+
+            result = load_questions("dummy.json")
+        assert isinstance(result, list)
+
+
+class TestEvaluateSingle:
+    def test_returns_retrieval_hit_when_source_found(self):
+        mock_search = MagicMock(return_value=[
+            {"content": "answer text", "source": "faq.csv:r1"},
+        ])
+        mock_generate = MagicMock(return_value="パスワードをリセットしてください")
+        from app.evaluate import evaluate_single
+
+        result = evaluate_single(
+            "パスワードを忘れた", "faq.csv:r1", ["パスワード", "リセット"],
+            mock_search, mock_generate,
+        )
+        assert result["retrieval_hit"] is True
+
+    def test_returns_retrieval_miss_when_source_not_found(self):
+        mock_search = MagicMock(return_value=[
+            {"content": "unrelated", "source": "products.csv:r1"},
+        ])
+        mock_generate = MagicMock(return_value="関係ない回答")
+        from app.evaluate import evaluate_single
+
+        result = evaluate_single(
+            "パスワードを忘れた", "faq.csv:r1", ["パスワード"],
+            mock_search, mock_generate,
+        )
+        assert result["retrieval_hit"] is False
+
+    def test_returns_faithfulness_score(self):
+        mock_search = MagicMock(return_value=[
+            {"content": "...", "source": "faq.csv:r1"},
+        ])
+        mock_generate = MagicMock(return_value="パスワードをリセット")
+        from app.evaluate import evaluate_single
+
+        result = evaluate_single(
+            "q", "faq.csv:r1", ["パスワード", "リセット", "メール"],
+            mock_search, mock_generate,
+        )
+        assert result["faithfulness"] == pytest.approx(2.0 / 3.0)
+
+    def test_returns_latency_as_float(self):
+        mock_search = MagicMock(return_value=[{"content": "c", "source": "s"}])
+        mock_generate = MagicMock(return_value="answer")
+        from app.evaluate import evaluate_single
+
+        result = evaluate_single("q", "s", ["answer"], mock_search, mock_generate)
+        assert isinstance(result["latency"], float)
+        assert result["latency"] >= 0
+
+    def test_calls_search_with_query(self):
+        mock_search = MagicMock(return_value=[{"content": "c", "source": "s"}])
+        mock_generate = MagicMock(return_value="a")
+        from app.evaluate import evaluate_single
+
+        evaluate_single("my query", "s", ["a"], mock_search, mock_generate)
+        mock_search.assert_called_once_with("my query")
+
+    def test_calls_generate_with_prompt_containing_context(self):
+        mock_search = MagicMock(return_value=[
+            {"content": "context text", "source": "s"},
+        ])
+        mock_generate = MagicMock(return_value="a")
+        from app.evaluate import evaluate_single
+
+        evaluate_single("my query", "s", ["a"], mock_search, mock_generate)
+        prompt = mock_generate.call_args[0][0]
+        assert "context text" in prompt
+        assert "my query" in prompt
+
+
+class TestRunEvaluation:
+    def test_returns_list_of_results(self):
+        mock_search = MagicMock(return_value=[{"content": "c", "source": "faq.csv:r1"}])
+        mock_generate = MagicMock(return_value="パスワード リセット")
+        questions = [
+            {"query": "q1", "expected_source": "faq.csv:r1", "expected_keywords": ["パスワード"]},
+            {"query": "q2", "expected_source": "faq.csv:r2", "expected_keywords": ["アカウント"]},
+        ]
+        from app.evaluate import run_evaluation
+
+        results = run_evaluation(questions, mock_search, mock_generate)
+        assert len(results) == 2
+
+    def test_aggregates_retrieval_hits(self):
+        call_count = {"n": 0}
+
+        def mock_search(query):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return [{"content": "c", "source": "faq.csv:r1"}]
+            return [{"content": "c", "source": "other"}]
+
+        mock_generate = MagicMock(return_value="keyword1")
+        questions = [
+            {"query": "q1", "expected_source": "faq.csv:r1", "expected_keywords": ["keyword1"]},
+            {"query": "q2", "expected_source": "faq.csv:r2", "expected_keywords": ["keyword1"]},
+        ]
+        from app.evaluate import run_evaluation
+
+        results = run_evaluation(questions, mock_search, mock_generate)
+        hits = sum(1 for r in results if r["retrieval_hit"])
+        assert hits == 1
+
+
+class TestPrintReport:
+    @patch("builtins.print")
+    def test_prints_config_header(self, mock_print):
+        from app.evaluate import print_report
+
+        config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
+        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"}]
+        print_report(results, config)
+        printed = " ".join(str(c) for c in mock_print.call_args_list)
+        assert "500" in printed
+        assert "100" in printed
+
+    @patch("builtins.print")
+    def test_prints_retrieval_percentage(self, mock_print):
+        from app.evaluate import print_report
+
+        config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
+        results = [
+            {"query": "q1", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"},
+            {"query": "q2", "retrieval_hit": False, "faithfulness": 0.5, "latency": 0.3, "answer": "a"},
+        ]
+        print_report(results, config)
+        printed = " ".join(str(c) for c in mock_print.call_args_list)
+        assert "50.0%" in printed
+
+    @patch("builtins.print")
+    def test_prints_faithfulness_percentage(self, mock_print):
+        from app.evaluate import print_report
+
+        config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
+        results = [
+            {"query": "q1", "retrieval_hit": True, "faithfulness": 0.8, "latency": 0.5, "answer": "a"},
+            {"query": "q2", "retrieval_hit": True, "faithfulness": 0.6, "latency": 0.3, "answer": "a"},
+        ]
+        print_report(results, config)
+        printed = " ".join(str(c) for c in mock_print.call_args_list)
+        assert "70.0%" in printed
+
+    @patch("builtins.print")
+    def test_prints_average_latency(self, mock_print):
+        from app.evaluate import print_report
+
+        config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
+        results = [
+            {"query": "q1", "retrieval_hit": True, "faithfulness": 1.0, "latency": 1.0, "answer": "a"},
+            {"query": "q2", "retrieval_hit": True, "faithfulness": 1.0, "latency": 3.0, "answer": "a"},
+        ]
+        print_report(results, config)
+        printed = " ".join(str(c) for c in mock_print.call_args_list)
+        assert "2.0" in printed
+
+    @patch("builtins.print")
+    def test_prints_rerank_status(self, mock_print):
+        from app.evaluate import print_report
+
+        config = {"CHUNK_SIZE": 500, "CHUNK_OVERLAP": 100, "SEARCH_K": 10, "RERANK_TOP_K": 3}
+        results = [{"query": "q", "retrieval_hit": True, "faithfulness": 1.0, "latency": 0.5, "answer": "a"}]
+        print_report(results, config)
+        printed = " ".join(str(c) for c in mock_print.call_args_list)
+        assert "Re-rank" in printed
+
+
+class TestEvaluateMain:
+    @patch("app.evaluate.print_report")
+    @patch("app.evaluate.run_evaluation")
+    @patch("app.evaluate.load_questions")
+    @patch("app.evaluate.generate")
+    @patch("app.evaluate.search")
+    def test_main_calls_pipeline(self, mock_search, mock_generate,
+                                  mock_load, mock_run, mock_print):
+        mock_load.return_value = [
+            {"query": "q", "expected_source": "s", "expected_keywords": ["k"]}
+        ]
+        mock_run.return_value = [
+            {"query": "q", "retrieval_hit": True, "faithfulness": 1.0,
+             "latency": 0.5, "answer": "a"}
+        ]
+        from app.evaluate import main
+
+        main()
+
+        mock_load.assert_called_once()
+        mock_run.assert_called_once()
+        mock_print.assert_called_once()
+
+    @patch("app.evaluate.print_report")
+    @patch("app.evaluate.run_evaluation")
+    @patch("app.evaluate.load_questions")
+    @patch("app.evaluate.generate")
+    @patch("app.evaluate.search")
+    def test_main_passes_search_and_generate(self, mock_search, mock_generate,
+                                              mock_load, mock_run, mock_print):
+        mock_load.return_value = []
+        mock_run.return_value = []
+        from app.evaluate import main
+
+        main()
+
+        call_args = mock_run.call_args[0]
+        assert call_args[1] == mock_search
+        assert call_args[2] == mock_generate
+
+
+class TestMakefileTarget:
+    def test_makefile_has_evaluate_target(self):
+        path = os.path.join(os.path.dirname(__file__), "..", "Makefile")
+        with open(path) as f:
+            content = f.read()
+        assert "evaluate:" in content
+        assert "evaluate.py" in content
