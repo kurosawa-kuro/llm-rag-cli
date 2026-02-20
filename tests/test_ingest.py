@@ -1,4 +1,5 @@
 from unittest.mock import patch, MagicMock, call
+from langchain_core.documents import Document
 import numpy as np
 import pytest
 
@@ -128,17 +129,11 @@ class TestLoadCsvs:
 
 
 class TestMain:
-    @patch("app.ingest.tqdm", side_effect=lambda x: x)
-    @patch("app.ingest.get_conn")
-    @patch("app.ingest.embed")
+    @patch("app.ingest.get_vectorstore")
     @patch("app.ingest.load_csvs", return_value=[("csv text", "file.csv:r1")])
     @patch("app.ingest.load_pdfs", return_value=[("pdf text", "doc.pdf:p1")])
     @patch("app.ingest.init_db")
-    def test_full_pipeline(self, mock_init, mock_pdfs, mock_csvs, mock_embed,
-                           mock_conn, mock_tqdm, mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384, [0.2] * 384])
+    def test_full_pipeline(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
         from app.ingest import main
 
         main()
@@ -146,110 +141,63 @@ class TestMain:
         mock_init.assert_called_once()
         mock_pdfs.assert_called_once()
         mock_csvs.assert_called_once()
-        assert cur.execute.call_count >= 2
-        conn.commit.assert_called_once()
+        mock_vs.return_value.add_documents.assert_called_once()
+        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        assert len(docs) == 2
 
-    @patch("app.ingest.tqdm", side_effect=lambda x: x)
-    @patch("app.ingest.get_conn")
-    @patch("app.ingest.embed")
+    @patch("app.ingest.get_vectorstore")
     @patch("app.ingest.load_csvs", return_value=[("csv text", "file.csv:r1")])
     @patch("app.ingest.load_pdfs", return_value=[("pdf text", "doc.pdf:p1")])
     @patch("app.ingest.init_db")
-    def test_insert_includes_source_and_chunk_index(self, mock_init, mock_pdfs, mock_csvs,
-                                                     mock_embed, mock_conn, mock_tqdm,
-                                                     mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384, [0.2] * 384])
+    def test_documents_have_metadata(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
         from app.ingest import main
 
         main()
 
-        sql = cur.execute.call_args_list[0][0][0]
-        assert "source" in sql
-        assert "chunk_index" in sql
+        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        for doc in docs:
+            assert isinstance(doc, Document)
+            assert "source" in doc.metadata
+            assert "chunk_index" in doc.metadata
 
-    @patch("app.ingest.tqdm", side_effect=lambda x: x)
-    @patch("app.ingest.get_conn")
-    @patch("app.ingest.embed")
+    @patch("app.ingest.get_vectorstore")
     @patch("app.ingest.load_csvs", return_value=[])
-    @patch("app.ingest.load_pdfs", return_value=[("long " * 200, "doc.pdf:p1")])
+    @patch("app.ingest.load_pdfs", return_value=[("para1\n\npara2\n\npara3", "doc.pdf:p1")])
     @patch("app.ingest.init_db")
-    def test_calls_split_text(self, mock_init, mock_pdfs, mock_csvs,
-                              mock_embed, mock_conn, mock_tqdm, mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        # split_text will produce multiple chunks, so embed needs to handle that
-        mock_embed.return_value = np.array([[0.1] * 384] * 10)
+    def test_pdf_uses_split_by_structure(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
         from app.ingest import main
 
         main()
 
-        # 長いテキストが分割されるので、INSERT回数 > 1
-        assert cur.execute.call_count > 1
+        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        assert len(docs) == 3  # 3 paragraphs
 
-    @patch("app.ingest.tqdm", side_effect=lambda x: x)
-    @patch("app.ingest.get_conn")
-    @patch("app.ingest.embed")
-    @patch("app.ingest.load_csvs", return_value=[])
-    @patch("app.ingest.load_pdfs", return_value=[
-        ("para1\n\npara2\n\npara3", "doc.pdf:p1"),
-    ])
-    @patch("app.ingest.init_db")
-    def test_pdf_uses_split_by_structure(self, mock_init, mock_pdfs, mock_csvs,
-                                         mock_embed, mock_conn, mock_tqdm,
-                                         mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384] * 3)
-        from app.ingest import main
-
-        main()
-
-        # 3段落に分割されるのでINSERT 3回
-        assert cur.execute.call_count == 3
-
-    @patch("app.ingest.tqdm", side_effect=lambda x: x)
-    @patch("app.ingest.get_conn")
-    @patch("app.ingest.embed")
+    @patch("app.ingest.get_vectorstore")
     @patch("app.ingest.load_csvs", return_value=[("csv row text", "data.csv:r1")])
     @patch("app.ingest.load_pdfs", return_value=[])
     @patch("app.ingest.init_db")
-    def test_csv_uses_split_text_not_structure(self, mock_init, mock_pdfs, mock_csvs,
-                                               mock_embed, mock_conn, mock_tqdm,
-                                               mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
+    def test_csv_uses_text_splitter(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
         from app.ingest import main
 
         main()
 
-        # 短いCSVテキストは1チャンクのまま
-        assert cur.execute.call_count == 1
+        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        # Short CSV text = 1 chunk
+        assert len(docs) == 1
 
-    @patch("app.ingest.tqdm", side_effect=lambda x: x)
-    @patch("app.ingest.get_conn")
-    @patch("app.ingest.embed")
+    @patch("app.ingest.get_vectorstore")
     @patch("app.ingest.load_csvs", return_value=[])
     @patch("app.ingest.load_pdfs", return_value=[])
     @patch("app.ingest.init_db")
-    def test_main_with_no_documents(self, mock_init, mock_pdfs, mock_csvs,
-                                     mock_embed, mock_conn, mock_tqdm,
-                                     mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([]).reshape(0, 384)
+    def test_main_with_no_documents(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
         from app.ingest import main
 
         main()
 
         mock_init.assert_called_once()
-        cur.execute.assert_not_called()
+        mock_vs.return_value.add_documents.assert_not_called()
 
-    @patch("app.ingest.tqdm", side_effect=lambda x: x)
-    @patch("app.ingest.get_conn")
-    @patch("app.ingest.embed")
+    @patch("app.ingest.get_vectorstore")
     @patch("app.ingest.load_csvs", return_value=[
         ("row1 text", "data.csv:r1"),
         ("row2 text", "data.csv:r2"),
@@ -258,44 +206,39 @@ class TestMain:
         ("pdf text", "doc.pdf:p1"),
     ])
     @patch("app.ingest.init_db")
-    def test_main_embeds_all_chunks_at_once(self, mock_init, mock_pdfs, mock_csvs,
-                                             mock_embed, mock_conn, mock_tqdm,
-                                             mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384] * 3)
+    def test_main_adds_all_documents_at_once(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
         from app.ingest import main
 
         main()
 
-        # embed は1回だけ呼ばれ、全チャンクをまとめて処理
-        mock_embed.assert_called_once()
-        texts = mock_embed.call_args[0][0]
-        assert len(texts) == 3
+        mock_vs.return_value.add_documents.assert_called_once()
+        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        assert len(docs) == 3
 
-    @patch("app.ingest.tqdm", side_effect=lambda x: x)
-    @patch("app.ingest.get_conn")
-    @patch("app.ingest.embed")
+    @patch("app.ingest.get_vectorstore")
     @patch("app.ingest.load_csvs", return_value=[("csv text", "file.csv:r1")])
     @patch("app.ingest.load_pdfs", return_value=[("pdf text", "doc.pdf:p1")])
     @patch("app.ingest.init_db")
-    def test_main_inserts_correct_data(self, mock_init, mock_pdfs, mock_csvs,
-                                        mock_embed, mock_conn, mock_tqdm,
-                                        mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.5] * 384, [0.6] * 384])
+    def test_main_creates_correct_documents(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
         from app.ingest import main
 
         main()
 
-        # 各INSERTのパラメータを検証
-        for call in cur.execute.call_args_list:
-            sql = call[0][0]
-            params = call[0][1]
-            assert "INSERT INTO documents" in sql
-            assert len(params) == 4  # (content, embedding, source, chunk_index)
-            assert isinstance(params[0], str)   # content
-            assert isinstance(params[1], list)   # embedding as list
-            assert isinstance(params[2], str)    # source
-            assert isinstance(params[3], int)    # chunk_index
+        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        for doc in docs:
+            assert isinstance(doc, Document)
+            assert isinstance(doc.page_content, str)
+            assert isinstance(doc.metadata["source"], str)
+            assert isinstance(doc.metadata["chunk_index"], int)
+
+    @patch("app.ingest.get_vectorstore")
+    @patch("app.ingest.load_csvs", return_value=[])
+    @patch("app.ingest.load_pdfs", return_value=[("long " * 200, "doc.pdf:p1")])
+    @patch("app.ingest.init_db")
+    def test_long_text_produces_multiple_chunks(self, mock_init, mock_pdfs, mock_csvs, mock_vs):
+        from app.ingest import main
+
+        main()
+
+        docs = mock_vs.return_value.add_documents.call_args[0][0]
+        assert len(docs) > 1

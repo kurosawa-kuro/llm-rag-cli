@@ -22,3 +22,19 @@ def fake_embeddings():
 @pytest.fixture
 def mock_llm_response():
     return {"choices": [{"text": "テスト回答です。"}]}
+
+
+@pytest.fixture
+def mock_vectorstore():
+    vs = MagicMock()
+    vs.as_retriever.return_value = MagicMock()
+    return vs
+
+
+@pytest.fixture
+def mock_documents():
+    from langchain_core.documents import Document
+    return [
+        Document(page_content="doc1 content", metadata={"source": "file.pdf:p1", "chunk_index": 0}),
+        Document(page_content="doc2 content", metadata={"source": "data.csv:r1", "chunk_index": 0}),
+    ]

@@ -1,22 +1,21 @@
-import psycopg2
-from app.config import DB_CONFIG
+from langchain_postgres import PGVector
+from app.config import CONNECTION_STRING, COLLECTION_NAME
+from app.embeddings import get_embeddings
+
+_vectorstore = None
 
 
-def get_conn():
-    return psycopg2.connect(**DB_CONFIG)
+def get_vectorstore():
+    global _vectorstore
+    if _vectorstore is None:
+        _vectorstore = PGVector(
+            embeddings=get_embeddings(),
+            collection_name=COLLECTION_NAME,
+            connection=CONNECTION_STRING,
+            use_jsonb=True,
+        )
+    return _vectorstore
 
 
 def init_db():
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS documents (
-                id SERIAL PRIMARY KEY,
-                content TEXT,
-                embedding VECTOR(384),
-                source TEXT,
-                chunk_index INT
-            );
-            """)
-        conn.commit()
+    get_vectorstore()

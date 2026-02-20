@@ -1,146 +1,29 @@
 from unittest.mock import patch, MagicMock
-import numpy as np
+from langchain_core.documents import Document
 import pytest
 
 
 class TestSearch:
-    @patch("app.ask.rerank", side_effect=lambda q, docs, top_k: docs[:top_k])
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_embeds_query_and_searches(self, mock_embed, mock_conn, mock_rerank,
-                                       mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = [("doc1", "src1"), ("doc2", "src2"), ("doc3", "src3")]
-        from app.ask import search
-
-        results = search("test query")
-
-        mock_embed.assert_called_once_with(["test query"])
-        assert len(results) == 3
-
-    @patch("app.ask.rerank", side_effect=lambda q, docs, top_k: docs[:top_k])
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_uses_pgvector_distance_operator(self, mock_embed, mock_conn, mock_rerank,
-                                              mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = []
-        from app.ask import search
-
-        search("query")
-
-        sql = cur.execute.call_args[0][0]
-        assert "<->" in sql
-        assert "LIMIT" in sql
-
-    @patch("app.ask.rerank", side_effect=lambda q, docs, top_k: docs[:top_k])
-    @patch("app.ask.SEARCH_K", 10)
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_uses_search_k_for_initial_retrieval(self, mock_embed, mock_conn,
-                                                  mock_rerank,
-                                                  mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = [("doc", "src")] * 10
-        from app.ask import search
-
-        search("query")
-
-        params = cur.execute.call_args[0][1]
-        assert 10 in params
-
-    @patch("app.ask.rerank", side_effect=lambda q, docs, top_k: docs[:top_k])
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_select_includes_source(self, mock_embed, mock_conn, mock_rerank,
-                                     mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = []
-        from app.ask import search
-
-        search("query")
-
-        sql = cur.execute.call_args[0][0]
-        assert "source" in sql
-
-
-class TestSearchWithReranking:
-    @patch("app.ask.rerank")
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_search_calls_rerank(self, mock_embed, mock_conn, mock_rerank,
-                                  mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = [("doc1", "src1"), ("doc2", "src2")]
-        mock_rerank.return_value = [{"content": "doc1", "source": "src1"}]
-        from app.ask import search
-
-        search("test query")
-
-        mock_rerank.assert_called_once()
-        call_args = mock_rerank.call_args[0]
-        assert call_args[0] == "test query"
-        assert len(call_args[1]) == 2
-
-    @patch("app.ask.RERANK_TOP_K", 3)
-    @patch("app.ask.rerank")
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_search_passes_rerank_top_k(self, mock_embed, mock_conn, mock_rerank,
-                                         mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = [("doc", "src")] * 10
-        mock_rerank.return_value = [{"content": "doc", "source": "src"}] * 3
-        from app.ask import search
-
-        search("query")
-
-        call_args = mock_rerank.call_args[0]
-        assert call_args[2] == 3
-
-    @patch("app.ask.rerank")
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_search_returns_reranked_results(self, mock_embed, mock_conn, mock_rerank,
-                                              mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = [("doc1", "src1"), ("doc2", "src2"), ("doc3", "src3")]
-        reranked = [
-            {"content": "doc2", "source": "src2"},
-            {"content": "doc1", "source": "src1"},
+    @patch("app.ask.get_compression_retriever")
+    @patch("app.ask.get_vectorstore")
+    def test_returns_list_of_dicts(self, mock_vs, mock_ccr):
+        mock_ccr.return_value.invoke.return_value = [
+            Document(page_content="doc1", metadata={"source": "src1"}),
+            Document(page_content="doc2", metadata={"source": "src2"}),
         ]
-        mock_rerank.return_value = reranked
         from app.ask import search
 
         results = search("query")
 
-        assert results == reranked
+        assert isinstance(results, list)
+        assert len(results) == 2
 
-
-class TestSearchResultStructure:
-    @patch("app.ask.rerank", side_effect=lambda q, docs, top_k: docs[:top_k])
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_returns_list_of_dicts_with_content_and_source(self, mock_embed, mock_conn,
-                                                            mock_rerank, mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = [("text1", "src1"), ("text2", "src2")]
+    @patch("app.ask.get_compression_retriever")
+    @patch("app.ask.get_vectorstore")
+    def test_returns_dicts_with_content_and_source(self, mock_vs, mock_ccr):
+        mock_ccr.return_value.invoke.return_value = [
+            Document(page_content="text1", metadata={"source": "src1"}),
+        ]
         from app.ask import search
 
         results = search("query")
@@ -151,93 +34,96 @@ class TestSearchResultStructure:
             assert isinstance(r["content"], str)
             assert isinstance(r["source"], str)
 
-    @patch("app.ask.rerank", side_effect=lambda q, docs, top_k: docs[:top_k])
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_returns_list_type(self, mock_embed, mock_conn, mock_rerank,
-                                mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = [("text", "src")]
+    @patch("app.ask.get_compression_retriever")
+    @patch("app.ask.get_vectorstore")
+    def test_calls_retriever_with_query(self, mock_vs, mock_ccr):
+        mock_ccr.return_value.invoke.return_value = []
         from app.ask import search
 
-        results = search("query")
-        assert isinstance(results, list)
+        search("テスト質問")
 
-    @patch("app.ask.rerank", side_effect=lambda q, docs, top_k: docs[:top_k])
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_search_with_single_result(self, mock_embed, mock_conn, mock_rerank,
-                                        mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = [("single doc", "src1")]
+        mock_ccr.return_value.invoke.assert_called_once_with("テスト質問")
+
+    @patch("app.ask.get_compression_retriever")
+    @patch("app.ask.get_vectorstore")
+    def test_creates_base_retriever_with_search_k(self, mock_vs, mock_ccr):
+        mock_ccr.return_value.invoke.return_value = []
+        from app.ask import search
+
+        search("query")
+
+        mock_vs.return_value.as_retriever.assert_called_once_with(search_kwargs={"k": 10})
+
+    @patch("app.ask.get_compression_retriever")
+    @patch("app.ask.get_vectorstore")
+    def test_wraps_with_compression_retriever(self, mock_vs, mock_ccr):
+        mock_ccr.return_value.invoke.return_value = []
+        from app.ask import search
+
+        search("query")
+
+        base_retriever = mock_vs.return_value.as_retriever.return_value
+        mock_ccr.assert_called_once_with(base_retriever)
+
+    @patch("app.ask.get_compression_retriever")
+    @patch("app.ask.get_vectorstore")
+    def test_search_with_single_result(self, mock_vs, mock_ccr):
+        mock_ccr.return_value.invoke.return_value = [
+            Document(page_content="single doc", metadata={"source": "src1"}),
+        ]
         from app.ask import search
 
         results = search("query")
         assert len(results) == 1
         assert results[0]["content"] == "single doc"
 
-    @patch("app.ask.rerank", side_effect=lambda q, docs, top_k: docs[:top_k])
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_search_embeds_query_as_single_element_list(self, mock_embed, mock_conn,
-                                                         mock_rerank, mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = []
+    @patch("app.ask.get_compression_retriever")
+    @patch("app.ask.get_vectorstore")
+    def test_search_empty_results(self, mock_vs, mock_ccr):
+        mock_ccr.return_value.invoke.return_value = []
         from app.ask import search
 
-        search("テスト質問")
-        mock_embed.assert_called_once_with(["テスト質問"])
+        results = search("query")
+        assert results == []
 
-    @patch("app.ask.rerank", side_effect=lambda q, docs, top_k: docs[:top_k])
-    @patch("app.ask.get_conn")
-    @patch("app.ask.embed")
-    def test_search_passes_vector_as_list_to_sql(self, mock_embed, mock_conn,
-                                                   mock_rerank, mock_db_connection):
-        conn, cur = mock_db_connection
-        mock_conn.return_value = conn
-        mock_embed.return_value = np.array([[0.1] * 384])
-        cur.fetchall.return_value = []
+    @patch("app.ask.get_compression_retriever")
+    @patch("app.ask.get_vectorstore")
+    def test_extracts_content_from_page_content(self, mock_vs, mock_ccr):
+        mock_ccr.return_value.invoke.return_value = [
+            Document(page_content="actual content", metadata={"source": "doc.pdf:p1"}),
+        ]
         from app.ask import search
 
-        search("query")
-
-        params = cur.execute.call_args[0][1]
-        assert isinstance(params[0], list)  # vector converted to list
+        results = search("query")
+        assert results[0]["content"] == "actual content"
+        assert results[0]["source"] == "doc.pdf:p1"
 
 
 class TestMain:
     @patch("builtins.print")
-    @patch("app.ask.generate", return_value="回答テスト")
-    @patch("app.ask.search", return_value=[
-        {"content": "context1", "source": "doc.pdf:p1"},
-        {"content": "context2", "source": "data.csv:r1"},
-    ])
+    @patch("app.graph.get_graph")
     @patch("app.ask.sys")
-    def test_builds_japanese_prompt(self, mock_sys, mock_search, mock_gen, mock_print):
+    def test_uses_graph_invoke(self, mock_sys, mock_get_graph, mock_print):
         mock_sys.argv = ["ask.py", "質問テスト"]
+        mock_get_graph.return_value.invoke.return_value = {
+            "answer": "回答テスト",
+            "sources": ["doc.pdf:p1", "data.csv:r1"],
+        }
         from app.ask import main
 
         main()
 
-        prompt = mock_gen.call_args[0][0]
-        assert "以下の情報を基に回答してください" in prompt
-        assert "質問:" in prompt
-        assert "回答:" in prompt
+        mock_get_graph.return_value.invoke.assert_called_once_with({"query": "質問テスト"})
 
     @patch("builtins.print")
-    @patch("app.ask.generate", return_value="回答テスト")
-    @patch("app.ask.search", return_value=[
-        {"content": "context1", "source": "doc.pdf:p1"},
-    ])
+    @patch("app.graph.get_graph")
     @patch("app.ask.sys")
-    def test_prints_answer(self, mock_sys, mock_search, mock_gen, mock_print):
+    def test_prints_answer(self, mock_sys, mock_get_graph, mock_print):
         mock_sys.argv = ["ask.py", "テスト"]
+        mock_get_graph.return_value.invoke.return_value = {
+            "answer": "回答テスト",
+            "sources": ["doc.pdf:p1"],
+        }
         from app.ask import main
 
         main()
@@ -246,14 +132,14 @@ class TestMain:
         assert "回答テスト" in printed
 
     @patch("builtins.print")
-    @patch("app.ask.generate", return_value="回答テスト")
-    @patch("app.ask.search", return_value=[
-        {"content": "context1", "source": "doc.pdf:p1"},
-        {"content": "context2", "source": "data.csv:r1"},
-    ])
+    @patch("app.graph.get_graph")
     @patch("app.ask.sys")
-    def test_prints_sources(self, mock_sys, mock_search, mock_gen, mock_print):
+    def test_prints_sources(self, mock_sys, mock_get_graph, mock_print):
         mock_sys.argv = ["ask.py", "テスト"]
+        mock_get_graph.return_value.invoke.return_value = {
+            "answer": "回答テスト",
+            "sources": ["doc.pdf:p1", "data.csv:r1"],
+        }
         from app.ask import main
 
         main()
@@ -264,42 +150,29 @@ class TestMain:
         assert "data.csv:r1" in printed
 
     @patch("builtins.print")
-    @patch("app.ask.generate", return_value="回答テスト")
-    @patch("app.ask.search", return_value=[
-        {"content": "context1", "source": "doc.pdf:p1"},
-    ])
+    @patch("app.graph.get_graph")
     @patch("app.ask.sys")
-    def test_passes_query_from_argv(self, mock_sys, mock_search, mock_gen, mock_print):
+    def test_passes_query_from_argv(self, mock_sys, mock_get_graph, mock_print):
         mock_sys.argv = ["ask.py", "テスト質問"]
+        mock_get_graph.return_value.invoke.return_value = {
+            "answer": "回答",
+            "sources": [],
+        }
         from app.ask import main
 
         main()
 
-        mock_search.assert_called_once_with("テスト質問")
+        mock_get_graph.return_value.invoke.assert_called_once_with({"query": "テスト質問"})
 
     @patch("builtins.print")
-    @patch("app.ask.generate", return_value="回答テスト")
-    @patch("app.ask.search", return_value=[
-        {"content": "context1", "source": "doc.pdf:p1"},
-    ])
+    @patch("app.graph.get_graph")
     @patch("app.ask.sys")
-    def test_prompt_includes_context(self, mock_sys, mock_search, mock_gen, mock_print):
+    def test_prints_answer_and_sources_sections(self, mock_sys, mock_get_graph, mock_print):
         mock_sys.argv = ["ask.py", "テスト"]
-        from app.ask import main
-
-        main()
-
-        prompt = mock_gen.call_args[0][0]
-        assert "context1" in prompt
-
-    @patch("builtins.print")
-    @patch("app.ask.generate", return_value="回答テスト")
-    @patch("app.ask.search", return_value=[
-        {"content": "context1", "source": "doc.pdf:p1"},
-    ])
-    @patch("app.ask.sys")
-    def test_prints_answer_and_sources_sections(self, mock_sys, mock_search, mock_gen, mock_print):
-        mock_sys.argv = ["ask.py", "テスト"]
+        mock_get_graph.return_value.invoke.return_value = {
+            "answer": "回答テスト",
+            "sources": ["doc.pdf:p1"],
+        }
         from app.ask import main
 
         main()

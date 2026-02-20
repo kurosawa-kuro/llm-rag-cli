@@ -23,3 +23,12 @@ RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
 SEARCH_K = int(os.getenv("SEARCH_K", "10"))
 RERANK_TOP_K = int(os.getenv("RERANK_TOP_K", "3"))
+
+
+def get_connection_string():
+    c = get_db_config()
+    return f"postgresql+psycopg://{c['user']}:{c['password']}@{c['host']}:5432/{c['dbname']}"
+
+
+CONNECTION_STRING = get_connection_string()
+COLLECTION_NAME = "documents"

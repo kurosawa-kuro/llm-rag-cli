@@ -1,15 +1,15 @@
 from app.config import EMBED_MODEL
 
-_model = None
+_embeddings = None
 
 
-def get_model():
-    global _model
-    if _model is None:
-        from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer(EMBED_MODEL)
-    return _model
+def get_embeddings():
+    global _embeddings
+    if _embeddings is None:
+        from langchain_huggingface import HuggingFaceEmbeddings
+        _embeddings = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
+    return _embeddings
 
 
 def embed(texts):
-    return get_model().encode(texts)
+    return get_embeddings().embed_documents(texts)

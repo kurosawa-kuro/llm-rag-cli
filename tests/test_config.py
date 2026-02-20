@@ -65,6 +65,39 @@ class TestConstants:
 
         assert RERANK_TOP_K == 3
 
+    def test_collection_name(self):
+        from app.config import COLLECTION_NAME
+
+        assert COLLECTION_NAME == "documents"
+
+    def test_connection_string_format(self):
+        from app.config import CONNECTION_STRING
+
+        assert CONNECTION_STRING.startswith("postgresql+psycopg://")
+
+    def test_connection_string_contains_default_values(self):
+        from app.config import CONNECTION_STRING
+
+        assert "rag:rag@localhost" in CONNECTION_STRING
+
+
+class TestConnectionString:
+    def test_env_override(self):
+        env = {"DB_HOST": "myhost", "DB_USER": "myuser", "DB_PASSWORD": "mypass", "DB_NAME": "mydb"}
+        with patch.dict("os.environ", env, clear=True):
+            from app.config import get_connection_string
+
+            cs = get_connection_string()
+            assert "myuser:mypass@myhost" in cs
+            assert "mydb" in cs
+
+    def test_format(self):
+        from app.config import get_connection_string
+
+        cs = get_connection_string()
+        assert cs.startswith("postgresql+psycopg://")
+        assert ":5432/" in cs
+
 
 class TestChunkConfigEnvOverride:
     def test_chunk_size_env_override(self):

@@ -1,20 +1,31 @@
-from app.config import RERANKER_MODEL
+from app.config import RERANKER_MODEL, RERANK_TOP_K
 
-_model = None
+_reranker = None
 
 
-def get_model():
-    global _model
-    if _model is None:
-        from sentence_transformers import CrossEncoder
-        _model = CrossEncoder(RERANKER_MODEL)
-    return _model
+def get_reranker():
+    global _reranker
+    if _reranker is None:
+        from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+        from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
+        model = HuggingFaceCrossEncoder(model_name=RERANKER_MODEL)
+        _reranker = CrossEncoderReranker(model=model, top_n=RERANK_TOP_K)
+    return _reranker
+
+
+def get_compression_retriever(base_retriever):
+    from langchain_classic.retrievers import ContextualCompressionRetriever
+    return ContextualCompressionRetriever(
+        base_compressor=get_reranker(),
+        base_retriever=base_retriever,
+    )
 
 
 def rerank(query, docs, top_k=3):
     if not docs:
         return []
-    pairs = [[query, doc["content"]] for doc in docs]
-    scores = get_model().predict(pairs)
-    scored_docs = sorted(zip(scores, docs), key=lambda x: x[0], reverse=True)
-    return [doc for _, doc in scored_docs[:top_k]]
+    from langchain_core.documents import Document
+    lc_docs = [Document(page_content=d["content"], metadata={"source": d.get("source", "")}) for d in docs]
+    compressor = get_reranker()
+    reranked = compressor.compress_documents(lc_docs, query)
+    return [{"content": doc.page_content, "source": doc.metadata.get("source", "")} for doc in reranked[:top_k]]

@@ -1,111 +1,100 @@
 import sys
 from unittest.mock import patch, MagicMock
-import numpy as np
 import pytest
 
 
 @pytest.fixture(autouse=True)
-def reset_model():
+def reset_embeddings():
     import app.embeddings
-    app.embeddings._model = None
+    app.embeddings._embeddings = None
     yield
-    app.embeddings._model = None
+    app.embeddings._embeddings = None
 
 
-class TestGetModel:
-    @patch.dict(sys.modules, {"sentence_transformers": MagicMock()})
+class TestGetEmbeddings:
+    @patch.dict(sys.modules, {"langchain_huggingface": MagicMock()})
     def test_loads_correct_model(self):
         import app.embeddings
-        app.embeddings._model = None
+        app.embeddings._embeddings = None
 
-        from sentence_transformers import SentenceTransformer
-        app.embeddings.get_model()
-        SentenceTransformer.assert_called_once_with("sentence-transformers/all-MiniLM-L6-v2")
+        from langchain_huggingface import HuggingFaceEmbeddings
+        app.embeddings.get_embeddings()
+        HuggingFaceEmbeddings.assert_called_once_with(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-    @patch.dict(sys.modules, {"sentence_transformers": MagicMock()})
-    def test_returns_model_instance(self):
+    @patch.dict(sys.modules, {"langchain_huggingface": MagicMock()})
+    def test_returns_embeddings_instance(self):
         import app.embeddings
-        app.embeddings._model = None
+        app.embeddings._embeddings = None
 
-        from sentence_transformers import SentenceTransformer
-        model = app.embeddings.get_model()
-        assert model == SentenceTransformer.return_value
+        from langchain_huggingface import HuggingFaceEmbeddings
+        result = app.embeddings.get_embeddings()
+        assert result == HuggingFaceEmbeddings.return_value
 
 
 class TestEmbed:
-    @patch("app.embeddings.get_model")
-    def test_returns_encode_result(self, mock_get_model):
-        fake_vectors = np.random.rand(2, 384).astype(np.float32)
-        mock_get_model.return_value.encode.return_value = fake_vectors
+    @patch("app.embeddings.get_embeddings")
+    def test_calls_embed_documents(self, mock_get_emb):
+        mock_get_emb.return_value.embed_documents.return_value = [[0.1] * 384, [0.2] * 384]
         from app.embeddings import embed
 
         result = embed(["text1", "text2"])
-        assert result.shape == (2, 384)
+        mock_get_emb.return_value.embed_documents.assert_called_once_with(["text1", "text2"])
 
-    @patch("app.embeddings.get_model")
-    def test_calls_encode_with_texts(self, mock_get_model):
-        mock_get_model.return_value.encode.return_value = np.zeros((1, 384))
+    @patch("app.embeddings.get_embeddings")
+    def test_returns_embed_documents_result(self, mock_get_emb):
+        expected = [[0.1] * 384, [0.2] * 384]
+        mock_get_emb.return_value.embed_documents.return_value = expected
         from app.embeddings import embed
 
-        texts = ["hello"]
-        embed(texts)
-        mock_get_model.return_value.encode.assert_called_once_with(texts)
+        result = embed(["text1", "text2"])
+        assert result == expected
 
-    @patch("app.embeddings.get_model")
-    def test_multiple_texts(self, mock_get_model):
-        fake_vectors = np.random.rand(3, 384).astype(np.float32)
-        mock_get_model.return_value.encode.return_value = fake_vectors
+    @patch("app.embeddings.get_embeddings")
+    def test_multiple_texts(self, mock_get_emb):
+        expected = [[0.1] * 384, [0.2] * 384, [0.3] * 384]
+        mock_get_emb.return_value.embed_documents.return_value = expected
         from app.embeddings import embed
 
         result = embed(["a", "b", "c"])
-        assert result.shape == (3, 384)
+        assert len(result) == 3
 
-    @patch("app.embeddings.get_model")
-    def test_single_text_returns_correct_shape(self, mock_get_model):
-        fake_vectors = np.random.rand(1, 384).astype(np.float32)
-        mock_get_model.return_value.encode.return_value = fake_vectors
+    @patch("app.embeddings.get_embeddings")
+    def test_single_text(self, mock_get_emb):
+        expected = [[0.1] * 384]
+        mock_get_emb.return_value.embed_documents.return_value = expected
         from app.embeddings import embed
 
         result = embed(["hello"])
-        assert result.shape == (1, 384)
+        assert len(result) == 1
 
-    @patch("app.embeddings.get_model")
-    def test_returns_numpy_array(self, mock_get_model):
-        fake_vectors = np.random.rand(2, 384).astype(np.float32)
-        mock_get_model.return_value.encode.return_value = fake_vectors
-        from app.embeddings import embed
-
-        result = embed(["a", "b"])
-        assert isinstance(result, np.ndarray)
-
-    @patch("app.embeddings.get_model")
-    def test_embed_japanese_text(self, mock_get_model):
-        fake_vectors = np.random.rand(2, 384).astype(np.float32)
-        mock_get_model.return_value.encode.return_value = fake_vectors
+    @patch("app.embeddings.get_embeddings")
+    def test_embed_japanese_text(self, mock_get_emb):
+        expected = [[0.1] * 384, [0.2] * 384]
+        mock_get_emb.return_value.embed_documents.return_value = expected
         from app.embeddings import embed
 
         result = embed(["パスワードを忘れた", "料金プラン"])
-        mock_get_model.return_value.encode.assert_called_once_with(["パスワードを忘れた", "料金プラン"])
-        assert result.shape == (2, 384)
+        mock_get_emb.return_value.embed_documents.assert_called_once_with(["パスワードを忘れた", "料金プラン"])
+        assert len(result) == 2
 
 
 class TestSingleton:
-    @patch.dict(sys.modules, {"sentence_transformers": MagicMock()})
-    def test_get_model_returns_same_instance_on_second_call(self):
+    @patch.dict(sys.modules, {"langchain_huggingface": MagicMock()})
+    def test_get_embeddings_returns_same_instance_on_second_call(self):
         import app.embeddings
-        app.embeddings._model = None
+        app.embeddings._embeddings = None
 
-        model1 = app.embeddings.get_model()
-        model2 = app.embeddings.get_model()
-        assert model1 is model2
+        e1 = app.embeddings.get_embeddings()
+        e2 = app.embeddings.get_embeddings()
+        assert e1 is e2
 
-    @patch.dict(sys.modules, {"sentence_transformers": MagicMock()})
-    def test_get_model_only_loads_once(self):
+    @patch.dict(sys.modules, {"langchain_huggingface": MagicMock()})
+    def test_get_embeddings_only_loads_once(self):
         import app.embeddings
-        app.embeddings._model = None
+        app.embeddings._embeddings = None
 
-        from sentence_transformers import SentenceTransformer
-        app.embeddings.get_model()
-        app.embeddings.get_model()
-        app.embeddings.get_model()
-        SentenceTransformer.assert_called_once()
+        from langchain_huggingface import HuggingFaceEmbeddings
+        app.embeddings.get_embeddings()
+        app.embeddings.get_embeddings()
+        app.embeddings.get_embeddings()
+        HuggingFaceEmbeddings.assert_called_once()
