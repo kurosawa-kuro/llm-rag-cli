@@ -90,12 +90,13 @@ llm-rag-cli/
 │   ├── graph.py                # LangGraph RAGパイプライン（StateGraph + ファクトリノード）
 │   ├── metrics.py              # 評価メトリクス（retrieval@k, faithfulness, exact_match, latency）
 │   └── evaluate.py             # 評価パイプライン実行（graph.invoke() ベース）
-├── tests/                      # テストスイート（259テスト）
+├── tests/                      # テストスイート（266テスト: 単体259 + 統合7）
 │   ├── __init__.py             # パッケージ初期化
-│   ├── conftest.py             # 共有フィクスチャ（mock DB, fake embeddings, mock LLM, mock vectorstore, mock documents, reset_container）
+│   ├── conftest.py             # 共有フィクスチャ（mock DB, fake embeddings, mock LLM, mock vectorstore, mock documents, reset_container, 統合テスト用fixture）
 │   ├── test_config.py          # config.py のテスト（25件）
 │   ├── test_container.py       # container.py のテスト（17件）
 │   ├── test_db.py              # db.py のテスト（6件）
+│   ├── test_db_integration.py  # DB統合テスト（7件、@pytest.mark.integration）
 │   ├── test_embeddings.py      # embeddings.py のテスト（9件）
 │   ├── test_llm.py             # llm.py のテスト（9件）
 │   ├── test_chunking.py        # chunking.py のテスト（32件）
@@ -154,7 +155,8 @@ llm-rag-cli/
 | `app/graph.py` | `RAGState` dataclass でパイプライン状態を定義。`create_retrieve` / `create_rerank` / `create_generate` ファクトリ関数で container 依存のノードを生成。`build_rag_graph(container=)` で StateGraph をコンパイル。`get_graph(container=)` でグラフ返却 |
 | `app/metrics.py` | `retrieval_at_k()` で検索ヒット判定、`faithfulness()` でキーワード一致率算出、`exact_match()` で全キーワード一致判定、`measure_latency()` で関数実行時間計測 |
 | `app/evaluate.py` | `load_questions()` で評価データ読み込み、`evaluate_single(query, expected_source, expected_keywords, graph)` で `graph.invoke()` 経由の個別評価、`run_evaluation(questions, graph)` で全問評価、`print_report()` でレポート出力 |
-| `tests/conftest.py` | `mock_db_connection` (conn/cur モック)、`fake_embeddings` (3×384次元ダミー)、`mock_llm_response` (LLM応答モック)、`mock_vectorstore` (PGVector モック)、`mock_documents` (LangChain Document モック)、`reset_container` (autouse: AppContainer シングルトンリセット) |
+| `tests/conftest.py` | `mock_db_connection` (conn/cur モック)、`fake_embeddings` (3×384次元ダミー)、`mock_llm_response` (LLM応答モック)、`mock_vectorstore` (PGVector モック)、`mock_documents` (LangChain Document モック)、`reset_container` (autouse: AppContainer シングルトンリセット)、`test_embeddings` (FakeEmbeddings 384次元)、`test_vectorstore` (実PGVector test_documents コレクション) |
+| `tests/test_db_integration.py` | DB統合テスト（`@pytest.mark.integration`）。PGVector接続確認、ドキュメント追加・検索・削除、メタデータ保持、kパラメータ制御を実DBで検証 |
 | `data/eval_questions.json` | 評価用質問13問（query, expected_source, expected_keywords） |
 
 ---
@@ -290,7 +292,9 @@ llm-rag-cli/
 | `make up` | Docker コンテナをバックグラウンド起動 |
 | `make down` | Docker コンテナを停止・削除 |
 | `make shell` | app コンテナの bash に接続 |
-| `make test` | 全テスト実行 (`pytest tests/ -v`) |
+| `make test` | 全テスト実行 (`pytest tests/ -v`、単体+統合) |
+| `make test-unit` | 単体テストのみ実行（DB不要、`-m "not integration"`） |
+| `make test-integration` | DB統合テストのみ実行（PostgreSQL必要、`-m integration`） |
 | `make lint` | 全モジュールの構文チェック (`py_compile`、graph.py 含む) |
 | `make ingest` | ドキュメント取り込み実行 |
 | `make ask Q="質問文"` | RAG に質問して回答を取得 |
