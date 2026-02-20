@@ -79,6 +79,16 @@ class TestConstants:
 
         assert RERANK_TOP_K == 3
 
+    def test_llm_n_ctx(self):
+        from app.config import LLM_N_CTX
+
+        assert LLM_N_CTX == 2048
+
+    def test_llm_max_tokens(self):
+        from app.config import LLM_MAX_TOKENS
+
+        assert LLM_MAX_TOKENS == 300
+
     def test_collection_name(self):
         from app.config import COLLECTION_NAME
 
