@@ -76,18 +76,18 @@ data/{pdf,csv}/  →  ingest.py  →  chunking  →  container.vectorstore (PGVe
 
 ### Pipeline: Two-stage retrieval via TwoStageRetrieval
 
-1. **Ingest** (`rag.data.ingest`): PDFs use `split_by_structure` (paragraph-aware), CSVs use `RecursiveCharacterTextSplitter`. Chunks become `langchain_core.documents.Document` with source metadata (`file:p1` for PDF pages, `file:r1` for CSV rows) and are stored via `container.vectorstore.add_documents()`.
-2. **Query** (`cli.ask` → `rag.pipeline.graph`): LangGraph StateGraph runs retrieve → generate (2-node). The `retrieve` node calls `container.retrieval_strategy.retrieve()` which encapsulates vector search (k=10) + Cross-Encoder reranking (top_k=3) in `TwoStageRetrieval`.
+1. **Ingest** (`rag.data.ingest`): Clears existing collection via `delete_collection()` + vectorstore recreation. PDFs use `split_by_structure` (paragraph-aware), CSVs use 1-row-1-document (category columns excluded). Chunks become `langchain_core.documents.Document` with source metadata (`file:p1` for PDF pages, `file:r1` for CSV rows) and are stored via `container.vectorstore.add_documents()`.
+2. **Query** (`cli.ask` → `rag.pipeline.graph`): LangGraph StateGraph runs retrieve → generate (2-node). The `retrieve` node calls `container.retrieval_strategy.retrieve()` which encapsulates `similarity_search_with_score` (k=20) + score threshold filtering (0.5) + Cross-Encoder reranking (top_k=5) in `TwoStageRetrieval`. Generate node returns early with "該当する情報が見つかりませんでした。" when no contexts found.
 
 ### Key integration points
 
 - **`rag.core.interfaces`** — Protocol definitions (`VectorStoreProtocol`, `RerankerProtocol`, `LLMProtocol`, `RetrievalStrategyProtocol`, `PromptBuilder`) for type-safe DI
 - **`rag.core.container`** — `AppContainer` DI Container with lazy properties (embeddings, vectorstore, reranker, llm, prompt_builder, retrieval_strategy). `get_container()` for singleton. Test-time mock injection via constructor args
-- **`rag.pipeline.retrieval`** — `TwoStageRetrieval` frozen dataclass encapsulating vector search → Cross-Encoder reranking
+- **`rag.pipeline.retrieval`** — `TwoStageRetrieval` frozen dataclass encapsulating `similarity_search_with_score` → score threshold filtering → Cross-Encoder reranking
 - **`rag.infra.db`** — `create_vectorstore(embeddings)` factory for `langchain_postgres.PGVector` (connection string: `postgresql+psycopg://`)
 - **`rag.components.embeddings`** — `create_embeddings()` factory for `HuggingFaceEmbeddings` (`all-MiniLM-L6-v2`, 384-dim)
-- **`rag.components.llm`** — `create_llm()` factory for `LlamaCpp` (Llama-2-7B Q4_K_M, n_ctx=2048, max_tokens=300)
-- **`rag.components.reranker`** — `create_reranker()` factory for `HuggingFaceCrossEncoder` + `CrossEncoderReranker`. Also provides `get_compression_retriever()` and standalone `rerank()`
+- **`rag.components.llm`** — `create_llm()` factory for `LlamaCpp` (Llama-2-7B Q4_K_M, n_ctx=2048, max_tokens=300, stop=["質問:", "\n\n"])
+- **`rag.components.reranker`** — `CrossEncoderReranker` class implementing `RerankerProtocol`. `create_reranker()` factory for `HuggingFaceCrossEncoder` + `CrossEncoderReranker`
 - **`rag.pipeline.graph`** — `RAGState` dataclass, two-node `StateGraph` (retrieve → generate → END). `create_retrieve(container)` and `create_generate(container)` factory functions. Singleton via `get_graph()`
 - **`rag.core.config`** — Loads settings from `env/config/setting.yaml` via `_load_settings()`. Env vars override YAML defaults. Exports `CONNECTION_STRING`, `COLLECTION_NAME`, and all parameter constants
 - **`rag.components.prompting`** — `build_prompt(query, contexts)` for Japanese prompt template
@@ -101,9 +101,9 @@ Infrastructure modules (`db.py`, `embeddings.py`, `llm.py`, `reranker.py`) provi
 - Heavy dependencies (LangChain models, PGVector, LlamaCpp) are always mocked in unit tests — no DB or model files needed
 - DI Container: tests inject mocks via `AppContainer` constructor args. `conftest.py` has `reset_container` autouse fixture that resets `rag.core.container._container = None`
 - Test markers: `@pytest.mark.integration` for DB tests, `@pytest.mark.heavy` for real embeddings tests
-- Shared fixtures in `tests/conftest.py`: `mock_db_connection`, `fake_embeddings`, `mock_llm_response`, `mock_vectorstore`, `mock_documents`, `reset_container`, `test_embeddings`, `test_vectorstore`, `real_vectorstore`
+- Shared fixtures in `tests/conftest.py`: `reset_container`, `test_embeddings`, `test_vectorstore`, `real_vectorstore`
 - pytest config: `pythonpath = src` (imports as `from rag.module import ...`)
-- 280 tests across 17 files (268 unit + 7 integration + 3 heavy)
+- 250 tests across 17 files (240 unit + 7 integration + 3 heavy)
 
 ## Environment Variables
 
@@ -113,10 +113,11 @@ Infrastructure modules (`db.py`, `embeddings.py`, `llm.py`, `reranker.py`) provi
 | DB_USER | rag | Database user |
 | DB_PASSWORD | rag | Database password |
 | DB_NAME | rag | Database name |
-| CHUNK_SIZE | 500 | Text chunk size in characters |
-| CHUNK_OVERLAP | 100 | Overlap between chunks |
-| SEARCH_K | 10 | Number of candidates from vector search |
-| RERANK_TOP_K | 3 | Number of results after reranking |
+| CHUNK_SIZE | 350 | Text chunk size in characters |
+| CHUNK_OVERLAP | 80 | Overlap between chunks |
+| SEARCH_K | 20 | Number of candidates from vector search |
+| RERANK_TOP_K | 5 | Number of results after reranking |
+| SCORE_THRESHOLD | 0.5 | Score threshold for vector search (cosine distance) |
 
 Defaults are defined in `env/config/setting.yaml`. Environment variables take precedence when set.
 

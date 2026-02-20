@@ -29,11 +29,12 @@ data/csv/  ──┤
              ▼
          ingest.py ── chunking.py ──→ container.vectorstore ──→ PGVector (langchain-postgres)
                      (PDF: split_by_structure)                   (documents コレクション)
-                     (CSV: RecursiveCharacterTextSplitter)       source, chunk_index 付き
+                     (CSV: 1行=1ドキュメント)                    source, chunk_index 付き
                                                                         │
-                                                                 ベクトル検索 (SEARCH_K=10)
+                                                                 ベクトル検索 (SEARCH_K=20)
+                                                                  + スコア閾値フィルタ (SCORE_THRESHOLD=0.5)
                                                                         │
-                                                                 reranker (CrossEncoderReranker, RERANK_TOP_K=3)
+                                                                 reranker (CrossEncoderReranker, RERANK_TOP_K=5)
                                                                         │
          ask.py ◄───────────────────────────────────────────────────────┘
            │
@@ -79,14 +80,15 @@ data/csv/  ──┤
 
 **データフロー:**
 
-1. `ingest.py` が PDF/CSV を読み込み、テキストとソースメタデータ（`file:p1`, `file:r1`）を抽出
-2. PDF は `split_by_structure` で段落分割、CSV は `RecursiveCharacterTextSplitter` で分割
-3. `langchain_core.documents.Document` にメタデータ（source, chunk_index）付きで格納
-4. `container.vectorstore.add_documents()` で PostgreSQL に一括格納
-5. `ask.py` の `main()` は `get_container()` 経由で container を取得し、`get_graph(container=...)` で LangGraph パイプラインを構築
-6. LangGraph の `retrieve` ノードが `container.retrieval_strategy.retrieve()` を呼び出し、ベクトル検索（SEARCH_K=10件）→ Cross-Encoder リランキング（RERANK_TOP_K=3件）を実行
-7. `generate` ノードが `container.prompt_builder` で日本語プロンプトを構築し、`container.llm.invoke()` で回答を生成
-8. 回答とソース情報を出力
+1. `ingest.py` が既存コレクションを `delete_collection()` で削除し、vectorstore を再生成（冪等な再取り込み）
+2. PDF/CSV を読み込み、テキストとソースメタデータ（`file:p1`, `file:r1`）を抽出
+3. PDF は `split_by_structure` で段落分割、CSV は1行=1ドキュメント（カテゴリ列除外）
+4. `langchain_core.documents.Document` にメタデータ（source, chunk_index）付きで格納
+5. `container.vectorstore.add_documents()` で PostgreSQL に一括格納
+6. `ask.py` の `main()` は `get_container()` 経由で container を取得し、`get_graph(container=...)` で LangGraph パイプラインを構築
+7. LangGraph の `retrieve` ノードが `container.retrieval_strategy.retrieve()` を呼び出し、`similarity_search_with_score` でベクトル検索（SEARCH_K=20件）→ スコア閾値フィルタ（SCORE_THRESHOLD=0.5）→ Cross-Encoder リランキング（RERANK_TOP_K=5件）を実行
+8. `generate` ノードが `container.prompt_builder` で日本語プロンプトを構築し、`container.llm.invoke()` で回答を生成。検索結果が空の場合は LLM を呼び出さず「該当する情報が見つかりませんでした。」を返却
+9. 回答と重複排除されたソース情報を出力
 
 ---
 
@@ -108,7 +110,7 @@ llm-rag-cli/
 │   │   │   ├── __init__.py
 │   │   │   ├── embeddings.py      # テキスト埋め込みファクトリ（langchain-huggingface）
 │   │   │   ├── llm.py             # LLM推論ファクトリ（langchain-community LlamaCpp）
-│   │   │   ├── reranker.py        # CrossEncoderReranker ファクトリ + ContextualCompressionRetriever
+│   │   │   ├── reranker.py        # CrossEncoderReranker ファクトリ
 │   │   │   └── prompting.py       # プロンプト構築（日本語テンプレート）
 │   │   ├── data/                  # データ層（取り込み・チャンク分割）
 │   │   │   ├── __init__.py
@@ -125,20 +127,20 @@ llm-rag-cli/
 │   └── cli/                       # CLI エントリポイント
 │       ├── __init__.py
 │       └── ask.py                 # 質問応答CLI エントリポイント
-├── tests/                         # テストスイート（280テスト: 単体268 + DB統合7 + heavy3）
+├── tests/                         # テストスイート（250テスト: 単体240 + DB統合7 + heavy3）
 │   ├── __init__.py                # パッケージ初期化
-│   ├── conftest.py                # 共有フィクスチャ（単体テスト用mock + DB統合用fixture + heavy用real_vectorstore）
+│   ├── conftest.py                # 共有フィクスチャ（reset_container + DB統合用fixture + heavy用real_vectorstore）
 │   ├── test_config.py             # config.py のテスト（25件）
 │   ├── test_container.py          # container.py のテスト（21件）
-│   ├── test_interfaces.py         # interfaces.py のテスト（5件）
-│   ├── test_retrieval.py          # retrieval.py のテスト（6件）
+│   ├── test_interfaces.py         # interfaces.py のテスト（4件）
+│   ├── test_retrieval.py          # retrieval.py のテスト（8件）
 │   ├── test_db.py                 # db.py のテスト（6件）
 │   ├── test_db_integration.py     # DB統合テスト（7件、@pytest.mark.integration）
-│   ├── test_embeddings.py         # embeddings.py のテスト（9件）
+│   ├── test_embeddings.py         # embeddings.py のテスト（2件）
 │   ├── test_embeddings_integration.py  # 実Embeddings統合テスト（3件、@pytest.mark.heavy）
-│   ├── test_llm.py                # llm.py のテスト（9件）
+│   ├── test_llm.py                # llm.py のテスト（2件）
 │   ├── test_chunking.py           # chunking.py のテスト（32件）
-│   ├── test_reranker.py           # reranker.py のテスト（18件）
+│   ├── test_reranker.py           # reranker.py のテスト（3件）
 │   ├── test_prompting.py          # prompting.py のテスト（6件）
 │   ├── test_ingest.py             # ingest.py のテスト（23件）
 │   ├── test_ask.py                # ask.py のテスト（8件）
@@ -180,22 +182,22 @@ llm-rag-cli/
 
 | ファイル | 役割 |
 |----------|------|
-| `src/rag/core/config.py` | `_load_settings()` で `env/config/setting.yaml` を読み込み。`get_db_config()` で環境変数（優先）またはYAMLからDB接続情報を取得。`get_connection_string()` で SQLAlchemy 形式の接続文字列を生成。`DB_CONFIG`, `CONNECTION_STRING`, `COLLECTION_NAME`, `EMBED_MODEL`, `LLM_MODEL_PATH`, `LLM_N_CTX`, `LLM_MAX_TOKENS`, `CHUNK_SIZE`, `CHUNK_OVERLAP`, `RERANKER_MODEL`, `SEARCH_K`, `RERANK_TOP_K` 定数を定義 |
-| `src/rag/core/interfaces.py` | `VectorStoreProtocol`（`as_retriever()` メソッド）、`RetrieverProtocol`（`invoke()` メソッド）、`RerankerProtocol`（`compress_documents()` メソッド）、`LLMProtocol`（`invoke()` メソッド）、`RetrievalStrategyProtocol`（`retrieve()` メソッド）、`PromptBuilder` 型エイリアスを定義。DI Container の型安全性を保証 |
+| `src/rag/core/config.py` | `_load_settings()` で `env/config/setting.yaml` を読み込み。`get_db_config()` で環境変数（優先）またはYAMLからDB接続情報を取得。`get_connection_string()` で SQLAlchemy 形式の接続文字列を生成。`CONNECTION_STRING`, `COLLECTION_NAME`, `EMBED_MODEL`, `LLM_MODEL_PATH`, `LLM_N_CTX`, `LLM_MAX_TOKENS`, `CHUNK_SIZE`, `CHUNK_OVERLAP`, `RERANKER_MODEL`, `SEARCH_K`, `RERANK_TOP_K`, `SCORE_THRESHOLD` 定数を定義 |
+| `src/rag/core/interfaces.py` | `VectorStoreProtocol`（`similarity_search_with_score()` メソッド）、`RerankerProtocol`（`compress_documents()` メソッド）、`LLMProtocol`（`invoke()` メソッド）、`RetrievalStrategyProtocol`（`retrieve()` メソッド）、`PromptBuilder` 型エイリアスを定義。DI Container の型安全性を保証 |
 | `src/rag/core/container.py` | `RagSettings` データクラスで RAG パラメータ管理。`AppContainer` が全インフラ依存を lazy property でキャッシュ（embeddings, vectorstore, reranker, llm, prompt_builder, retrieval_strategy）。`get_container()` でシングルトン返却。テスト時はコンストラクタ引数でモック注入可能 |
-| `src/rag/pipeline/retrieval.py` | `TwoStageRetrieval` frozen dataclass。`vectorstore.as_retriever()` でベクトル検索後、`reranker.compress_documents()` でリランキングする2段階検索をカプセル化。`retrieve(query)` で検索結果を返却 |
+| `src/rag/pipeline/retrieval.py` | `TwoStageRetrieval` frozen dataclass。`vectorstore.similarity_search_with_score()` でベクトル検索後、`score_threshold` でフィルタリングし、`reranker.compress_documents()` でリランキングする2段階検索をカプセル化。`retrieve(query)` で検索結果を返却 |
 | `src/rag/infra/db.py` | `create_vectorstore(embeddings)` で `langchain_postgres.PGVector` を生成するファクトリ関数。`CONNECTION_STRING`, `COLLECTION_NAME`, `use_jsonb=True` |
-| `src/rag/components/embeddings.py` | `create_embeddings()` で `HuggingFaceEmbeddings` を生成するファクトリ関数。`embed(texts)` でテキストリストを埋め込みベクトルに変換 |
-| `src/rag/components/llm.py` | `create_llm()` で `LlamaCpp` を生成するファクトリ関数（n_ctx, max_tokens は config 参照）。`generate(prompt)` で `invoke()` により回答テキストを生成 |
+| `src/rag/components/embeddings.py` | `create_embeddings()` で `HuggingFaceEmbeddings` を生成するファクトリ関数 |
+| `src/rag/components/llm.py` | `create_llm()` で `LlamaCpp` を生成するファクトリ関数（n_ctx, max_tokens, stop tokens は config 参照） |
 | `src/rag/data/chunking.py` | `split_text()` で固定サイズ・単語境界チャンク分割（overlap付き）、`split_by_structure()` で段落ベースチャンク分割 |
-| `src/rag/components/reranker.py` | `create_reranker()` で `HuggingFaceCrossEncoder` + `CrossEncoderReranker` を生成するファクトリ関数。`get_compression_retriever()` で `ContextualCompressionRetriever` を構築。`rerank(query, docs, top_k)` で辞書形式の文書をリランキング |
+| `src/rag/components/reranker.py` | `CrossEncoderReranker` クラス（`compress_documents()` メソッドで RerankerProtocol を実装）。`create_reranker()` ファクトリ関数で生成 |
 | `src/rag/components/prompting.py` | `build_prompt(query, contexts)` で日本語プロンプトテンプレートを構築 |
-| `src/rag/data/ingest.py` | `load_pdfs()` でPDFのページテキスト抽出（ソースメタデータ付き）、`load_csvs()` でCSVの行を `key:value` 形式に変換、`main()` で container.vectorstore 経由でPDFは `split_by_structure`、CSVは `RecursiveCharacterTextSplitter` で分割後、`Document` 化して `add_documents()` で格納 |
+| `src/rag/data/ingest.py` | `load_pdfs()` でPDFのページテキスト抽出（ソースメタデータ付き）、`load_csvs()` でCSVの行をカテゴリ列を除外したテキストに変換、`main()` で既存コレクションを削除後、PDFは `split_by_structure` で分割、CSVは1行=1ドキュメントとして `Document` 化し `add_documents()` で格納 |
 | `src/cli/ask.py` | `main()` で `get_container()` → `get_graph(container=...)` で LangGraph パイプラインを構築し、`graph.invoke()` で回答生成、回答とソース情報を出力 |
 | `src/rag/pipeline/graph.py` | `RAGState` dataclass でパイプライン状態を定義。`create_retrieve` / `create_generate` ファクトリ関数で container 依存のノードを生成。`build_rag_graph(container=)` で 2ノード StateGraph（retrieve → generate → END）をコンパイル。`get_graph(container=)` でグラフ返却 |
 | `src/rag/evaluation/metrics.py` | `retrieval_at_k()` で検索ヒット判定、`faithfulness()` でキーワード一致率算出、`exact_match()` で全キーワード一致判定、`measure_latency()` で関数実行時間計測 |
 | `src/rag/evaluation/evaluate.py` | `load_questions()` で評価データ読み込み、`evaluate_single(query, expected_source, expected_keywords, graph)` で `graph.invoke()` 経由の個別評価、`run_evaluation(questions, graph)` で全問評価、`print_report()` でレポート出力 |
-| `tests/conftest.py` | `mock_db_connection` (conn/cur モック)、`fake_embeddings` (3x384次元ダミー)、`mock_llm_response` (LLM応答モック)、`mock_vectorstore` (PGVector モック)、`mock_documents` (LangChain Document モック)、`reset_container` (autouse: AppContainer シングルトンリセット)、`test_embeddings` (FakeEmbeddings 384次元)、`test_vectorstore` (実PGVector test_documents コレクション)、`real_vectorstore` (実HuggingFaceEmbeddings + 実PGVector、heavy用) |
+| `tests/conftest.py` | `reset_container` (autouse: AppContainer シングルトンリセット)、`test_embeddings` (FakeEmbeddings 384次元)、`test_vectorstore` (実PGVector test_documents コレクション)、`real_vectorstore` (実HuggingFaceEmbeddings + 実PGVector、heavy用) |
 | `tests/test_db_integration.py` | DB統合テスト（`@pytest.mark.integration`）。PGVector接続確認、ドキュメント追加・検索・削除、メタデータ保持、kパラメータ制御を実DBで検証 |
 | `tests/test_embeddings_integration.py` | 実Embeddings統合テスト（`@pytest.mark.integration` + `@pytest.mark.heavy`）。実HuggingFaceEmbeddingsによるベクトル検索の順序妥当性を検証（cosine値は検証しない） |
 | `data/eval_questions.json` | 評価用質問13問（query, expected_source, expected_keywords） |
@@ -211,25 +213,24 @@ llm-rag-cli/
 | `_load_settings()` | `() -> dict` | `env/config/setting.yaml` を読み込み、設定辞書を返却 |
 | `get_db_config()` | `() -> dict` | 環境変数（優先）またはYAMLから DB 接続設定を辞書で返却 |
 | `get_connection_string()` | `() -> str` | `postgresql+psycopg://` 形式の接続文字列を生成（ポートはYAMLから取得） |
-| `DB_CONFIG` | `dict` | `get_db_config()` の評価結果（モジュール読み込み時に確定） |
 | `CONNECTION_STRING` | `str` | `get_connection_string()` の評価結果 |
 | `COLLECTION_NAME` | `str` | YAMLの `collection_name`（デフォルト `"documents"`） |
 | `EMBED_MODEL` | `str` | YAMLの `models.embed_model`（`"sentence-transformers/all-MiniLM-L6-v2"`） |
 | `LLM_MODEL_PATH` | `str` | YAMLの `models.llm_model_path`（`"./models/llama-2-7b.Q4_K_M.gguf"`） |
 | `LLM_N_CTX` | `int` | YAMLの `llm.n_ctx`（デフォルト 2048） |
 | `LLM_MAX_TOKENS` | `int` | YAMLの `llm.max_tokens`（デフォルト 300） |
-| `CHUNK_SIZE` | `int` | 環境変数 `CHUNK_SIZE` またはYAML（デフォルト 500） |
-| `CHUNK_OVERLAP` | `int` | 環境変数 `CHUNK_OVERLAP` またはYAML（デフォルト 100） |
+| `CHUNK_SIZE` | `int` | 環境変数 `CHUNK_SIZE` またはYAML（デフォルト 350） |
+| `CHUNK_OVERLAP` | `int` | 環境変数 `CHUNK_OVERLAP` またはYAML（デフォルト 80） |
 | `RERANKER_MODEL` | `str` | YAMLの `models.reranker_model`（`"cross-encoder/ms-marco-MiniLM-L-6-v2"`） |
-| `SEARCH_K` | `int` | 環境変数 `SEARCH_K` またはYAML（デフォルト 10） |
-| `RERANK_TOP_K` | `int` | 環境変数 `RERANK_TOP_K` またはYAML（デフォルト 3） |
+| `SEARCH_K` | `int` | 環境変数 `SEARCH_K` またはYAML（デフォルト 20） |
+| `RERANK_TOP_K` | `int` | 環境変数 `RERANK_TOP_K` またはYAML（デフォルト 5） |
+| `SCORE_THRESHOLD` | `float` | 環境変数 `SCORE_THRESHOLD` またはYAML（デフォルト 0.5） |
 
 ### src/rag/core/interfaces.py
 
 | クラス/型 | シグネチャ | 説明 |
 |-----------|-----------|------|
-| `RetrieverProtocol` | `Protocol` | `invoke(query: str) -> List[Document]` メソッドを定義 |
-| `VectorStoreProtocol` | `Protocol` | `as_retriever(*, search_kwargs: dict) -> RetrieverProtocol` メソッドを定義 |
+| `VectorStoreProtocol` | `Protocol` | `similarity_search_with_score(query: str, k: int) -> list` メソッドを定義 |
 | `RerankerProtocol` | `Protocol` | `compress_documents(documents: List[Document], query: str) -> List[Document]` メソッドを定義 |
 | `LLMProtocol` | `Protocol` | `invoke(prompt: str) -> str` メソッドを定義 |
 | `RetrievalStrategyProtocol` | `Protocol` | `retrieve(query: str) -> List[Document]` メソッドを定義 |
@@ -239,21 +240,21 @@ llm-rag-cli/
 
 | 関数/クラス | シグネチャ | 説明 |
 |-------------|-----------|------|
-| `RagSettings` | `@dataclass(frozen=True)` | RAG パラメータ管理（`search_k`, `rerank_top_k`） |
+| `RagSettings` | `@dataclass(frozen=True)` | RAG パラメータ管理（`search_k`, `rerank_top_k`, `score_threshold`） |
 | `AppContainer` | `class` | DI Container。コンストラクタで `settings`, `embeddings`, `vectorstore`, `reranker`, `llm`, `prompt_builder`, `retrieval_strategy` を受け取り（すべてオプション）。未指定の依存は lazy property で遅延生成・キャッシュ |
 | `AppContainer.embeddings` | `@property -> HuggingFaceEmbeddings` | `create_embeddings()` で遅延生成 |
 | `AppContainer.vectorstore` | `@property -> VectorStoreProtocol` | `create_vectorstore(self.embeddings)` で遅延生成 |
 | `AppContainer.reranker` | `@property -> RerankerProtocol` | `create_reranker()` で遅延生成 |
 | `AppContainer.llm` | `@property -> LLMProtocol` | `create_llm()` で遅延生成 |
 | `AppContainer.prompt_builder` | `@property -> PromptBuilder` | `build_prompt` で遅延設定 |
-| `AppContainer.retrieval_strategy` | `@property -> RetrievalStrategyProtocol` | `TwoStageRetrieval(vectorstore, reranker, search_k, rerank_top_k)` で遅延生成 |
+| `AppContainer.retrieval_strategy` | `@property -> RetrievalStrategyProtocol` | `TwoStageRetrieval(vectorstore, reranker, search_k, rerank_top_k, score_threshold)` で遅延生成 |
 | `get_container()` | `() -> AppContainer` | シングルトンの `AppContainer` を返却 |
 
 ### src/rag/pipeline/retrieval.py
 
 | クラス | シグネチャ | 説明 |
 |--------|-----------|------|
-| `TwoStageRetrieval` | `@dataclass(frozen=True)` | `vectorstore`, `reranker`, `search_k`, `rerank_top_k` を保持。`retrieve(query)` で2段階検索（ベクトル検索 → リランキング）を実行し `List[Document]` を返却 |
+| `TwoStageRetrieval` | `@dataclass(frozen=True)` | `vectorstore`, `reranker`, `search_k`, `rerank_top_k`, `score_threshold` を保持。`retrieve(query)` で `similarity_search_with_score` → スコア閾値フィルタ → リランキングの2段階検索を実行し `List[Document]` を返却 |
 
 ### src/rag/infra/db.py
 
@@ -266,14 +267,12 @@ llm-rag-cli/
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
 | `create_embeddings()` | `() -> HuggingFaceEmbeddings` | `HuggingFaceEmbeddings` を生成して返却（`EMBED_MODEL` 使用） |
-| `embed(texts)` | `(list[str]) -> list[list[float]]` | テキストリストを `embed_documents()` で埋め込みベクトルに変換 |
 
 ### src/rag/components/llm.py
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
-| `create_llm()` | `() -> LlamaCpp` | `LlamaCpp` を生成して返却（`LLM_MODEL_PATH`, `LLM_N_CTX`, `LLM_MAX_TOKENS`, `verbose=False`） |
-| `generate(prompt)` | `(str) -> str` | `create_llm().invoke(prompt)` で回答テキストを生成 |
+| `create_llm()` | `() -> LlamaCpp` | `LlamaCpp` を生成して返却（`LLM_MODEL_PATH`, `LLM_N_CTX`, `LLM_MAX_TOKENS`, `stop=["質問:", "\\n\\n"]`, `verbose=False`） |
 
 ### src/rag/data/chunking.py
 
@@ -286,9 +285,8 @@ llm-rag-cli/
 
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
-| `create_reranker()` | `() -> CrossEncoderReranker` | `HuggingFaceCrossEncoder` + `CrossEncoderReranker` を生成して返却（`RERANKER_MODEL`, `RERANK_TOP_K` 使用） |
-| `get_compression_retriever(base_retriever)` | `(BaseRetriever) -> ContextualCompressionRetriever` | base_retriever に `CrossEncoderReranker` を組み合わせた `ContextualCompressionRetriever` を返却 |
-| `rerank(query, docs, top_k=3)` | `(str, list[dict], int) -> list[dict]` | 辞書形式の文書を `Document` に変換し、`CrossEncoderReranker` でスコアリング後、上位 top_k 件を辞書形式で返却。空リスト/None は空リスト返却 |
+| `CrossEncoderReranker` | `class` | `HuggingFaceCrossEncoder` を使った reranker。`compress_documents(documents, query)` でドキュメントをスコアリングし上位 `top_n` 件を返却。`RerankerProtocol` を満たす |
+| `create_reranker(top_n)` | `(int) -> CrossEncoderReranker` | `HuggingFaceCrossEncoder` + `CrossEncoderReranker` を生成して返却（`RERANKER_MODEL`, `RERANK_TOP_K` 使用） |
 
 ### src/rag/components/prompting.py
 
@@ -301,8 +299,8 @@ llm-rag-cli/
 | 関数 | シグネチャ | 説明 |
 |------|-----------|------|
 | `load_pdfs()` | `() -> list[tuple[str, str]]` | `data/pdf/` 内の全 PDF から各ページのテキストとソース（`filename:pN`）をタプルで返却 |
-| `load_csvs()` | `() -> list[tuple[str, str]]` | `data/csv/` 内の全 CSV から各行を `"key:value"` 形式とソース（`filename:rN`）でタプル返却 |
-| `main()` | `() -> None` | `get_container()` で container 取得 → PDF/CSV読み込み → PDFは `split_by_structure`、CSVは `RecursiveCharacterTextSplitter` で分割 → `Document` 化（source, chunk_index メタデータ付き） → `container.vectorstore.add_documents()` で格納 |
+| `load_csvs()` | `() -> list[tuple[str, str]]` | `data/csv/` 内の全 CSV から各行をカテゴリ列を除外したテキストとソース（`filename:rN`）でタプル返却 |
+| `main()` | `() -> None` | `get_container()` で container 取得 → `delete_collection()` で既存データ削除 → vectorstore 再生成 → PDF/CSV読み込み → PDFは `split_by_structure` で分割、CSVは1行=1ドキュメント → `Document` 化（source, chunk_index メタデータ付き） → `container.vectorstore.add_documents()` で格納 |
 
 ### src/cli/ask.py
 
@@ -379,10 +377,11 @@ python -m rag.evaluation.evaluate           # 評価パイプライン
 | `DB_USER` | `rag` | データベースユーザー |
 | `DB_PASSWORD` | `rag` | データベースパスワード |
 | `DB_NAME` | `rag` | データベース名 |
-| `CHUNK_SIZE` | `500` | チャンクサイズ（文字数） |
-| `CHUNK_OVERLAP` | `100` | チャンク間オーバーラップ（文字数） |
-| `SEARCH_K` | `10` | ベクトル検索の取得件数 |
-| `RERANK_TOP_K` | `3` | リランキング後の上位件数 |
+| `CHUNK_SIZE` | `350` | チャンクサイズ（文字数） |
+| `CHUNK_OVERLAP` | `80` | チャンク間オーバーラップ（文字数） |
+| `SEARCH_K` | `20` | ベクトル検索の取得件数 |
+| `RERANK_TOP_K` | `5` | リランキング後の上位件数 |
+| `SCORE_THRESHOLD` | `0.5` | ベクトル検索のスコア閾値（コサイン距離、低いほど類似） |
 | `PYTHONPATH` | `/app/src` | Python モジュール検索パス（Docker 内、docker-compose.yml で設定） |
 
 ※ デフォルト値は `env/config/setting.yaml` で定義。環境変数が設定されている場合は環境変数が優先される。
