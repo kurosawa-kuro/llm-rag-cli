@@ -1,0 +1,7 @@
+psycopg2-binary
+sentence-transformers
+pypdf
+pandas
+numpy
+tqdm
+llama-cpp-python
