@@ -127,7 +127,7 @@ llm-rag-cli/
 │   └── cli/                       # CLI エントリポイント
 │       ├── __init__.py
 │       └── ask.py                 # 質問応答CLI エントリポイント
-├── tests/                         # テストスイート（250テスト: 単体240 + DB統合7 + heavy3）
+├── tests/                         # テストスイート（274テスト: 単体264 + DB統合7 + heavy3）
 │   ├── __init__.py                # パッケージ初期化
 │   ├── conftest.py                # 共有フィクスチャ（reset_container + DB統合用fixture + heavy用real_vectorstore）
 │   ├── test_config.py             # config.py のテスト（25件）
@@ -145,8 +145,8 @@ llm-rag-cli/
 │   ├── test_ingest.py             # ingest.py のテスト（23件）
 │   ├── test_ask.py                # ask.py のテスト（8件）
 │   ├── test_graph.py              # graph.py のテスト（19件）
-│   ├── test_metrics.py            # metrics.py のテスト（38件）
-│   └── test_evaluate.py           # evaluate.py のテスト（43件）
+│   ├── test_metrics.py            # metrics.py のテスト（49件）
+│   └── test_evaluate.py           # evaluate.py のテスト（56件）
 ├── data/                          # 入力データ配置先
 │   ├── pdf/                       # PDF ファイル格納
 │   │   ├── company_overview.pdf       # 会社概要

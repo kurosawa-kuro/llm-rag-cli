@@ -104,7 +104,7 @@ Infrastructure modules (`db.py`, `embeddings.py`, `llm.py`, `reranker.py`) provi
 - Test markers: `@pytest.mark.integration` for DB tests, `@pytest.mark.heavy` for real embeddings tests
 - Shared fixtures in `tests/conftest.py`: `reset_container`, `test_embeddings`, `test_vectorstore`, `real_vectorstore`
 - pytest config: `pythonpath = src` (imports as `from rag.module import ...`)
-- 250 tests across 17 files (240 unit + 7 integration + 3 heavy)
+- 274 tests across 17 files (264 unit + 7 integration + 3 heavy)
 
 ## Environment Variables
 
